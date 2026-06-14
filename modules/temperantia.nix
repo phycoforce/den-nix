@@ -1,0 +1,20 @@
+{ den, inputs, ... }:
+{
+  den.aspects.temperantia = {
+    includes = [ den.batteries.hostname ];
+
+    nixos = {
+      imports = [
+        inputs.chaotic.nixosModules.default
+
+        ./_nixos/base-system.nix
+        ./_nixos/boot.nix
+        ./_nixos/cachyos-kernel.nix
+        ./_nixos/niri.nix
+        ./_nixos/noctalia-support.nix
+        ./_nixos/nvidia.nix
+        ./_nixos/storage.nix
+      ];
+    };
+  };
+}
