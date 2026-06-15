@@ -4,6 +4,7 @@
     includes = [
       den.batteries.define-user
       den.batteries.primary-user
+      den.aspects.communication
       den.aspects.development
       den.aspects.media
     ];

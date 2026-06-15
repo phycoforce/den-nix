@@ -6,7 +6,7 @@
     BROWSER = "firefox";
     EDITOR = "vim";
     NIXOS_OZONE_WL = "1";
-    TERMINAL = "alacritty";
+    TERMINAL = "ghostty";
   };
 
   xdg = {
@@ -45,8 +45,6 @@
     enable = true;
     enableBashIntegration = true;
   };
-
-  programs.alacritty.enable = true;
 
   programs.ghostty = {
     enable = true;

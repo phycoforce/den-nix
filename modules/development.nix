@@ -1,7 +1,7 @@
 { den, ... }:
 {
   den.aspects.development = {
-    includes = [ (den.batteries.unfree [ "1password-cli" "vscode" ]) ];
+    includes = [ (den.batteries.unfree [ "1password-cli" "vscode" "winbox" ]) ];
 
     provides.to-hosts.nixos = {
       virtualisation.podman.enable = true;
@@ -44,6 +44,7 @@
         talhelper
         talosctl
         viddy
+        winbox
         yq
       ];
     };

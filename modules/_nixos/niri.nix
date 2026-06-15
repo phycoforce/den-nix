@@ -14,7 +14,7 @@
   };
 
   environment.systemPackages = with pkgs; [
-    alacritty
+    ghostty
     kdePackages.polkit-kde-agent-1
     nautilus
     tuigreet

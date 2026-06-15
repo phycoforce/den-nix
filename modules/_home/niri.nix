@@ -101,7 +101,7 @@
     binds {
         Mod+Shift+Escape { show-hotkey-overlay; }
 
-        Mod+Return { spawn "alacritty"; }
+        Mod+Return { spawn "ghostty"; }
         Mod+Ctrl+Return { spawn-sh "noctalia-shell ipc call launcher toggle"; }
         Mod+B { spawn "firefox"; }
         Mod+Alt+L { spawn-sh "noctalia-shell ipc call lockScreen lock"; }
