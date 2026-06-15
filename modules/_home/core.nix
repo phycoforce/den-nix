@@ -4,9 +4,15 @@
 
   home.sessionVariables = {
     BROWSER = "firefox";
-    EDITOR = "vim";
+    EDITOR = "nano";
     NIXOS_OZONE_WL = "1";
     TERMINAL = "ghostty";
+  };
+
+  home.file = {
+    ".bash_profile".force = true;
+    ".bashrc".force = true;
+    ".profile".force = true;
   };
 
   xdg = {
@@ -40,6 +46,14 @@
   programs.btop.enable = true;
   programs.eza.enable = true;
   programs.jq.enable = true;
+
+  programs.bash = {
+    enable = true;
+    shellAliases = {
+      grep = "grep --color=auto";
+      ls = "ls --color=auto";
+    };
+  };
 
   programs.starship = {
     enable = true;

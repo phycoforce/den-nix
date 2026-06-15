@@ -10,6 +10,7 @@
     kdePackages.kcalc
     libnotify
     nautilus
+    nano
     networkmanagerapplet
     p7zip
     pavucontrol

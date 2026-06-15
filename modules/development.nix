@@ -15,6 +15,22 @@
         package = pkgs.vscode;
       };
 
+      programs.mise = {
+        enable = true;
+        enableBashIntegration = true;
+        package = pkgs.mise;
+      };
+
+      programs.bash = {
+        shellAliases.k = "kubectl";
+        initExtra = ''
+          if command -v kubectl >/dev/null 2>&1; then
+            source <(kubectl completion bash)
+            complete -o default -F __start_kubectl k
+          fi
+        '';
+      };
+
       home.packages = with pkgs; [
         _1password-cli
         age
@@ -34,7 +50,6 @@
         kubernetes-helm
         kustomize
         minijinja
-        mise
         moreutils
         opencode
         podman
