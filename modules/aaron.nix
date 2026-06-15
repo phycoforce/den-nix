@@ -5,6 +5,7 @@
       den.batteries.define-user
       den.batteries.primary-user
       den.aspects.development
+      den.aspects.media
     ];
 
     user.description = "Aaron";
