@@ -25,7 +25,6 @@
         description = "Aaron";
         extraGroups = [
           "audio"
-          "docker"
           "input"
           "render"
           "video"

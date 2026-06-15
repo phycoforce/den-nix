@@ -4,7 +4,6 @@
     alacritty
     brightnessctl
     cliphist
-    docker-compose
     firefox
     grim
     htop
