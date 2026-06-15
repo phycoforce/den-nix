@@ -35,6 +35,7 @@
         _1password-cli
         age
         cloudflared
+        codex
         crane
         fluxcd
         go-task
