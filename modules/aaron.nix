@@ -44,9 +44,18 @@
     };
 
     provides.to-hosts.nixos = {
+      programs = {
+        _1password.enable = true;
+        _1password-gui = {
+          enable = true;
+          polkitPolicyOwners = [ "aaron" ];
+        };
+      };
+
       users.users.aaron.extraGroups = [
         "audio"
         "input"
+        "podman"
         "render"
         "video"
       ];

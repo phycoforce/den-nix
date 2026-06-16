@@ -4,7 +4,11 @@
     includes = [ (den.batteries.unfree [ "1password-cli" "vscode" "winbox" ]) ];
 
     provides.to-hosts.nixos = {
-      virtualisation.podman.enable = true;
+      virtualisation.podman = {
+        enable = true;
+        dockerCompat = true;
+        dockerSocket.enable = true;
+      };
     };
 
     homeManager = { pkgs, ... }: {
@@ -55,6 +59,7 @@
         minijinja
         moreutils
         opencode
+        opentofu
         podman
         podman-compose
         sops

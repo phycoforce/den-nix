@@ -40,6 +40,13 @@
   };
   hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
+  fonts.packages = with pkgs; [
+    nerd-fonts.meslo-lg
+    noto-fonts
+    noto-fonts-cjk-sans
+    noto-fonts-color-emoji
+  ];
+
   time.timeZone = "Europe/London";
   i18n.defaultLocale = "en_GB.UTF-8";
   i18n.extraLocaleSettings = {
@@ -55,14 +62,23 @@
   };
 
   networking = {
-    networkmanager.enable = true;
+    networkmanager = {
+      enable = true;
+      plugins = with pkgs; [ networkmanager-openvpn ];
+    };
     firewall.enable = true;
   };
 
   services = {
+    avahi = {
+      enable = true;
+      nssmdns4 = true;
+      openFirewall = true;
+    };
     blueman.enable = true;
     dbus.packages = [ pkgs.gcr ];
     flatpak.enable = true;
+    gvfs.enable = true;
     openssh.enable = false;
     pipewire = {
       enable = true;
@@ -72,7 +88,11 @@
       pulse.enable = true;
     };
     power-profiles-daemon.enable = true;
-    printing.enable = true;
+    printing = {
+      enable = true;
+      drivers = [ pkgs.brlaser ];
+    };
+    smartd.enable = true;
     udisks2.enable = true;
   };
 
@@ -94,10 +114,14 @@
     btrfs-progs
     curl
     efibootmgr
+    fastfetch
     git
     lm_sensors
     pciutils
+    rsync
+    smartmontools
     sysstat
+    unrar
     usbutils
     vim
     wget

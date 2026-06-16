@@ -1,7 +1,6 @@
 { pkgs, ... }:
 {
   home.packages = with pkgs; [
-    _1password-gui
     brightnessctl
     cliphist
     firefox
@@ -13,6 +12,7 @@
     nautilus
     nano
     networkmanagerapplet
+    obs-studio
     p7zip
     pavucontrol
     playerctl

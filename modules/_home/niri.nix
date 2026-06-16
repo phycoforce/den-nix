@@ -1,211 +1,256 @@
 { pkgs, ... }:
+let
+  noctaliaIpc = "noctalia-shell ipc call";
+in
 {
-  xdg.configFile."niri/config.kdl".text = ''
-    spawn-at-startup "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
-    spawn-at-startup "xwayland-satellite"
-    spawn-at-startup "noctalia-shell"
+  xdg.configFile = {
+    "niri/config.kdl".text = ''
+      include "./cfg/autostart.kdl"
+      include "./cfg/keybinds.kdl"
+      include "./cfg/input.kdl"
+      include "./cfg/display.kdl"
+      include "./cfg/layout.kdl"
+      include "./cfg/rules.kdl"
+      include "./cfg/misc.kdl"
 
-    input {
-        keyboard {
-            xkb {
-                layout "us"
-            }
-            numlock
-        }
+      include "./noctalia.kdl"
+    '';
 
-        touchpad {
-            tap
-            natural-scroll
-        }
+    "niri/cfg/autostart.kdl".text = ''
+      spawn-at-startup "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
+      spawn-at-startup "xwayland-satellite"
+      spawn-at-startup "noctalia-shell"
+    '';
 
-        workspace-auto-back-and-forth
-    }
+    "niri/cfg/display.kdl".text = ''
+      /- output "DP-1" {
+          mode "2560x1440@359.979"
+          scale 1
+      }
+    '';
 
-    layout {
-        gaps 16
-        center-focused-column "never"
-        background-color "transparent"
+    "niri/cfg/input.kdl".text = ''
+      input {
+          keyboard {
+              xkb {
+                  layout "us"
+              }
+              numlock
+          }
 
-        preset-column-widths {
-            proportion 0.33333
-            proportion 0.5
-            proportion 0.66667
-        }
+          touchpad {
+              tap
+              natural-scroll
+          }
 
-        focus-ring {
-            active-color "#cba6f7"
-            inactive-color "#1e1e2e"
-            urgent-color "#f38ba8"
-        }
+          workspace-auto-back-and-forth
+      }
+    '';
 
-        border {
-            active-color "#cba6f7"
-            inactive-color "#1e1e2e"
-            urgent-color "#f38ba8"
-        }
+    "niri/cfg/keybinds.kdl".text = ''
+      binds {
+          Mod+Shift+Escape { show-hotkey-overlay; }
 
-        shadow {
-            color "#11111b70"
-        }
+          Mod+Return { spawn "ghostty"; }
+          Mod+Ctrl+Return { spawn-sh "${noctaliaIpc} launcher toggle"; }
+          Mod+B { spawn "firefox"; }
+          Mod+Alt+L { spawn-sh "${noctaliaIpc} lockScreen lock"; }
+          Mod+Shift+Q { spawn-sh "${noctaliaIpc} sessionMenu toggle"; }
+          Mod+E { spawn "nautilus"; }
 
-        tab-indicator {
-            active-color "#cba6f7"
-            inactive-color "#6b02e9"
-            urgent-color "#f38ba8"
-        }
+          XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "${noctaliaIpc} volume increase"; }
+          XF86AudioLowerVolume allow-when-locked=true { spawn-sh "${noctaliaIpc} volume decrease"; }
+          XF86AudioMute allow-when-locked=true { spawn-sh "${noctaliaIpc} volume muteOutput"; }
+          XF86AudioMicMute allow-when-locked=true { spawn-sh "${noctaliaIpc} volume muteInput"; }
 
-        insert-hint {
-            color "#cba6f780"
-        }
+          Mod+Q { close-window; }
 
-        struts {}
-    }
+          Mod+Left { focus-column-left; }
+          Mod+H { focus-column-left; }
+          Mod+Right { focus-column-right; }
+          Mod+L { focus-column-right; }
+          Mod+Up { focus-window-up; }
+          Mod+K { focus-window-up; }
+          Mod+Down { focus-window-down; }
+          Mod+J { focus-window-down; }
 
-    prefer-no-csd
-    screenshot-path null
+          Mod+Ctrl+Left { move-column-left; }
+          Mod+Ctrl+H { move-column-left; }
+          Mod+Ctrl+Right { move-column-right; }
+          Mod+Ctrl+L { move-column-right; }
+          Mod+Ctrl+Up { move-window-up; }
+          Mod+Ctrl+K { move-window-up; }
+          Mod+Ctrl+Down { move-window-down; }
+          Mod+Ctrl+J { move-window-down; }
 
-    environment {
-        ELECTRON_OZONE_PLATFORM_HINT "auto"
-        NIXOS_OZONE_WL "1"
-        QT_QPA_PLATFORM "wayland"
-        QT_QPA_PLATFORMTHEME "gtk3"
-        QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
-        XDG_CURRENT_DESKTOP "niri"
-        XDG_SESSION_TYPE "wayland"
-    }
+          Mod+Home { focus-column-first; }
+          Mod+End { focus-column-last; }
+          Mod+Ctrl+Home { move-column-to-first; }
+          Mod+Ctrl+End { move-column-to-last; }
 
-    debug {
-        honor-xdg-activation-with-invalid-serial
-    }
+          Mod+Shift+Left { focus-monitor-left; }
+          Mod+Shift+Right { focus-monitor-right; }
+          Mod+Shift+Up { focus-monitor-up; }
+          Mod+Shift+Down { focus-monitor-down; }
 
-    hotkey-overlay {
-        skip-at-startup
-    }
+          Mod+Shift+Ctrl+Left { move-column-to-monitor-left; }
+          Mod+Shift+Ctrl+Right { move-column-to-monitor-right; }
+          Mod+Shift+Ctrl+Up { move-column-to-monitor-up; }
+          Mod+Shift+Ctrl+Down { move-column-to-monitor-down; }
 
-    window-rule {
-        geometry-corner-radius 20
-        clip-to-geometry true
-    }
+          Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+          Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+          Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+          Mod+Ctrl+WheelScrollUp cooldown-ms=150 { move-column-to-workspace-up; }
 
-    layer-rule {
-        match namespace="^noctalia-wallpaper*"
-        place-within-backdrop true
-    }
+          Mod+WheelScrollRight { focus-column-right; }
+          Mod+WheelScrollLeft { focus-column-left; }
+          Mod+Ctrl+WheelScrollRight { move-column-right; }
+          Mod+Ctrl+WheelScrollLeft { move-column-left; }
 
-    overview {
-        workspace-shadow {
-            off
-        }
-    }
+          Mod+Shift+WheelScrollDown { focus-column-right; }
+          Mod+Shift+WheelScrollUp { focus-column-left; }
+          Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
+          Mod+Ctrl+Shift+WheelScrollUp { move-column-left; }
 
-    binds {
-        Mod+Shift+Escape { show-hotkey-overlay; }
+          Mod+1 { focus-workspace 1; }
+          Mod+2 { focus-workspace 2; }
+          Mod+3 { focus-workspace 3; }
+          Mod+4 { focus-workspace 4; }
+          Mod+5 { focus-workspace 5; }
+          Mod+6 { focus-workspace 6; }
+          Mod+7 { focus-workspace 7; }
+          Mod+8 { focus-workspace 8; }
+          Mod+9 { focus-workspace 9; }
 
-        Mod+Return { spawn "ghostty"; }
-        Mod+Ctrl+Return { spawn-sh "noctalia-shell ipc call launcher toggle"; }
-        Mod+B { spawn "firefox"; }
-        Mod+Alt+L { spawn-sh "noctalia-shell ipc call lockScreen lock"; }
-        Mod+Shift+Q { spawn-sh "noctalia-shell ipc call sessionMenu toggle"; }
-        Mod+E { spawn "nautilus"; }
+          Mod+Ctrl+1 { move-column-to-workspace 1; }
+          Mod+Ctrl+2 { move-column-to-workspace 2; }
+          Mod+Ctrl+3 { move-column-to-workspace 3; }
+          Mod+Ctrl+4 { move-column-to-workspace 4; }
+          Mod+Ctrl+5 { move-column-to-workspace 5; }
+          Mod+Ctrl+6 { move-column-to-workspace 6; }
+          Mod+Ctrl+7 { move-column-to-workspace 7; }
+          Mod+Ctrl+8 { move-column-to-workspace 8; }
+          Mod+Ctrl+9 { move-column-to-workspace 9; }
 
-        XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "noctalia-shell ipc call volume increase"; }
-        XF86AudioLowerVolume allow-when-locked=true { spawn-sh "noctalia-shell ipc call volume decrease"; }
-        XF86AudioMute allow-when-locked=true { spawn-sh "noctalia-shell ipc call volume muteOutput"; }
-        XF86AudioMicMute allow-when-locked=true { spawn-sh "noctalia-shell ipc call volume muteInput"; }
+          Mod+Tab { focus-workspace-previous; }
 
-        Mod+Q { close-window; }
+          Mod+Ctrl+F { expand-column-to-available-width; }
+          Mod+C { center-column; }
+          Mod+Ctrl+C { center-visible-columns; }
+          Mod+Minus { set-column-width "-10%"; }
+          Mod+Equal { set-column-width "+10%"; }
+          Mod+Shift+Minus { set-window-height "-10%"; }
+          Mod+Shift+Equal { set-window-height "+10%"; }
 
-        Mod+Left { focus-column-left; }
-        Mod+H { focus-column-left; }
-        Mod+Right { focus-column-right; }
-        Mod+L { focus-column-right; }
-        Mod+Up { focus-window-up; }
-        Mod+K { focus-window-up; }
-        Mod+Down { focus-window-down; }
-        Mod+J { focus-window-down; }
+          Mod+T { toggle-window-floating; }
+          Mod+F { fullscreen-window; }
+          Mod+W { toggle-column-tabbed-display; }
 
-        Mod+Ctrl+Left { move-column-left; }
-        Mod+Ctrl+H { move-column-left; }
-        Mod+Ctrl+Right { move-column-right; }
-        Mod+Ctrl+L { move-column-right; }
-        Mod+Ctrl+Up { move-window-up; }
-        Mod+Ctrl+K { move-window-up; }
-        Mod+Ctrl+Down { move-window-down; }
-        Mod+Ctrl+J { move-window-down; }
+          Ctrl+Shift+1 { screenshot; }
+          Ctrl+Shift+2 { screenshot-screen; }
+          Ctrl+Shift+3 { screenshot-window; }
 
-        Mod+Home { focus-column-first; }
-        Mod+End { focus-column-last; }
-        Mod+Ctrl+Home { move-column-to-first; }
-        Mod+Ctrl+End { move-column-to-last; }
+          Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
 
-        Mod+Shift+Left { focus-monitor-left; }
-        Mod+Shift+Right { focus-monitor-right; }
-        Mod+Shift+Up { focus-monitor-up; }
-        Mod+Shift+Down { focus-monitor-down; }
+          Ctrl+Alt+Delete { quit; }
+          Mod+Shift+P { power-off-monitors; }
+          Mod+O repeat=false { toggle-overview; }
+      }
+    '';
 
-        Mod+Shift+Ctrl+Left { move-column-to-monitor-left; }
-        Mod+Shift+Ctrl+Right { move-column-to-monitor-right; }
-        Mod+Shift+Ctrl+Up { move-column-to-monitor-up; }
-        Mod+Shift+Ctrl+Down { move-column-to-monitor-down; }
+    "niri/cfg/layout.kdl".text = ''
+      layout {
+          gaps 16
+          center-focused-column "never"
+          background-color "transparent"
 
-        Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
-        Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
-        Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
-        Mod+Ctrl+WheelScrollUp cooldown-ms=150 { move-column-to-workspace-up; }
+          preset-column-widths {
+              proportion 0.33333
+              proportion 0.5
+              proportion 0.66667
+          }
 
-        Mod+WheelScrollRight { focus-column-right; }
-        Mod+WheelScrollLeft { focus-column-left; }
-        Mod+Ctrl+WheelScrollRight { move-column-right; }
-        Mod+Ctrl+WheelScrollLeft { move-column-left; }
+          struts {}
+      }
+    '';
 
-        Mod+Shift+WheelScrollDown { focus-column-right; }
-        Mod+Shift+WheelScrollUp { focus-column-left; }
-        Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
-        Mod+Ctrl+Shift+WheelScrollUp { move-column-left; }
+    "niri/cfg/misc.kdl".text = ''
+      prefer-no-csd
+      screenshot-path null
 
-        Mod+1 { focus-workspace 1; }
-        Mod+2 { focus-workspace 2; }
-        Mod+3 { focus-workspace 3; }
-        Mod+4 { focus-workspace 4; }
-        Mod+5 { focus-workspace 5; }
-        Mod+6 { focus-workspace 6; }
-        Mod+7 { focus-workspace 7; }
-        Mod+8 { focus-workspace 8; }
-        Mod+9 { focus-workspace 9; }
+      environment {
+          ELECTRON_OZONE_PLATFORM_HINT "auto"
+          NIXOS_OZONE_WL "1"
+          QT_QPA_PLATFORM "wayland"
+          QT_QPA_PLATFORMTHEME "gtk3"
+          QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+          XDG_CURRENT_DESKTOP "niri"
+          XDG_SESSION_TYPE "wayland"
+      }
 
-        Mod+Ctrl+1 { move-column-to-workspace 1; }
-        Mod+Ctrl+2 { move-column-to-workspace 2; }
-        Mod+Ctrl+3 { move-column-to-workspace 3; }
-        Mod+Ctrl+4 { move-column-to-workspace 4; }
-        Mod+Ctrl+5 { move-column-to-workspace 5; }
-        Mod+Ctrl+6 { move-column-to-workspace 6; }
-        Mod+Ctrl+7 { move-column-to-workspace 7; }
-        Mod+Ctrl+8 { move-column-to-workspace 8; }
-        Mod+Ctrl+9 { move-column-to-workspace 9; }
+      debug {
+          honor-xdg-activation-with-invalid-serial
+      }
 
-        Mod+Tab { focus-workspace-previous; }
+      hotkey-overlay {
+          skip-at-startup
+      }
 
-        Mod+Ctrl+F { expand-column-to-available-width; }
-        Mod+C { center-column; }
-        Mod+Ctrl+C { center-visible-columns; }
-        Mod+Minus { set-column-width "-10%"; }
-        Mod+Equal { set-column-width "+10%"; }
-        Mod+Shift+Minus { set-window-height "-10%"; }
-        Mod+Shift+Equal { set-window-height "+10%"; }
+      overview {
+          workspace-shadow {
+              off
+          }
+      }
+    '';
 
-        Mod+T { toggle-window-floating; }
-        Mod+F { fullscreen-window; }
-        Mod+W { toggle-column-tabbed-display; }
+    "niri/cfg/rules.kdl".text = ''
+      window-rule {
+          geometry-corner-radius 20
+          clip-to-geometry true
+      }
 
-        Ctrl+Shift+1 { screenshot; }
-        Ctrl+Shift+2 { screenshot-screen; }
-        Ctrl+Shift+3 { screenshot-window; }
+      layer-rule {
+          match namespace="^noctalia-wallpaper*"
+          place-within-backdrop true
+      }
+    '';
 
-        Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+    "niri/noctalia.kdl".text = ''
+      layout {
+          focus-ring {
+              active-color "#cba6f7"
+              inactive-color "#1e1e2e"
+              urgent-color "#f38ba8"
+          }
 
-        Ctrl+Alt+Delete { quit; }
-        Mod+Shift+P { power-off-monitors; }
-        Mod+O repeat=false { toggle-overview; }
-    }
-  '';
+          border {
+              active-color "#cba6f7"
+              inactive-color "#1e1e2e"
+              urgent-color "#f38ba8"
+          }
+
+          shadow {
+              color "#11111b70"
+          }
+
+          tab-indicator {
+              active-color "#cba6f7"
+              inactive-color "#6b02e9"
+              urgent-color "#f38ba8"
+          }
+
+          insert-hint {
+              color "#cba6f780"
+          }
+      }
+
+      recent-windows {
+          highlight {
+              active-color "#cba6f7"
+              urgent-color "#f38ba8"
+          }
+      }
+    '';
+  };
 }
