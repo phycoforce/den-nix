@@ -24,6 +24,41 @@
         "type": "github"
       }
     },
+    "codex-desktop": {
+      "inputs": {
+        "codex-dmg": [
+          "codex-dmg"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1781446882,
+        "narHash": "sha256-OYb+ZCKv5SoPeXNOvRqAzbkGazQtNufBZKtb1r2xpuQ=",
+        "owner": "benwbooth",
+        "repo": "codex-desktop-nix",
+        "rev": "85e6e443398932b23f1b132ff44c7574befb3e1b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "benwbooth",
+        "repo": "codex-desktop-nix",
+        "type": "github"
+      }
+    },
+    "codex-dmg": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-KDsGUTYFLRZvNOVFoN1UbUYS/J6FBCfvCytFb4rbq5M=",
+        "type": "file",
+        "url": "https://persistent.oaistatic.com/codex-app-prod/Codex.dmg"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://persistent.oaistatic.com/codex-app-prod/Codex.dmg"
+      }
+    },
     "darwin": {
       "inputs": {
         "nixpkgs": [
@@ -328,6 +363,8 @@
     "root": {
       "inputs": {
         "chaotic": "chaotic",
+        "codex-desktop": "codex-desktop",
+        "codex-dmg": "codex-dmg",
         "darwin": "darwin",
         "den": "den",
         "disko": "disko",

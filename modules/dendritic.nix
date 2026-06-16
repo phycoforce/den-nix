@@ -29,6 +29,17 @@
       flake-file.url = "github:denful/flake-file";
       den.url = "github:denful/den";
 
+      codex-dmg = {
+        url = "file+https://persistent.oaistatic.com/codex-app-prod/Codex.dmg";
+        flake = false;
+      };
+
+      codex-desktop = {
+        url = "github:benwbooth/codex-desktop-nix";
+        inputs.nixpkgs.follows = "nixpkgs";
+        inputs.codex-dmg.follows = "codex-dmg";
+      };
+
       home-manager = {
         url = "github:nix-community/home-manager/master";
         inputs.nixpkgs.follows = "nixpkgs";

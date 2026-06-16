@@ -18,7 +18,6 @@
     slurp
     swappy
     usbutils
-    wineWow64Packages.wayland
     wl-clipboard
     xdg-utils
     xwayland-satellite

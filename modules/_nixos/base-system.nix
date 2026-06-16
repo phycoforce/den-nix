@@ -83,7 +83,6 @@
 
   programs = {
     dconf.enable = true;
-    steam.enable = true;
   };
 
   environment.sessionVariables = {
