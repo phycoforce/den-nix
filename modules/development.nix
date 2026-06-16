@@ -1,4 +1,4 @@
-{ den, ... }:
+{ den, inputs, ... }:
 {
   den.aspects.development = {
     includes = [ (den.batteries.unfree [ "1password-cli" "vscode" "winbox" ]) ];
@@ -36,6 +36,7 @@
         age
         cloudflared
         codex
+        inputs.codex-desktop.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop
         crane
         distrobox
         fluxcd

@@ -28,6 +28,7 @@
       den.aspects.aaron
       den.aspects.communication
       den.aspects.development
+      den.aspects.gaming
       den.aspects.media
     ];
 
