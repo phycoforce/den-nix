@@ -37,6 +37,7 @@
         cloudflared
         codex
         crane
+        distrobox
         fluxcd
         go-task
         gum
