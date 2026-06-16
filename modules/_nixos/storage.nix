@@ -1,5 +1,7 @@
 { lib, ... }:
 let
+  mainDisk = "/dev/disk/by-id/nvme-eui.000000000000000100a0752448c2bd18";
+
   rootOptions = [
     "noatime"
     "compress=zstd:1"
@@ -8,49 +10,82 @@ let
   ];
 in
 {
-  fileSystems."/" = {
-    device = "/dev/disk/by-label/NIXROOT";
-    fsType = "btrfs";
-    options = [ "subvol=@" ] ++ rootOptions;
-  };
+  assertions = [
+    {
+      assertion = lib.hasPrefix "/dev/disk/by-id/" mainDisk;
+      message = "temperantia main disk must use a stable /dev/disk/by-id/... path before running disko.";
+    }
+  ];
 
-  fileSystems."/home" = {
-    device = "/dev/disk/by-label/NIXROOT";
-    fsType = "btrfs";
-    options = [ "subvol=@home" ] ++ rootOptions;
-  };
+  disko.devices.disk.main = {
+    type = "disk";
+    device = mainDisk;
+    content = {
+      type = "gpt";
+      partitions = {
+        NIXBOOT = {
+          label = "NIXBOOT";
+          priority = 1;
+          start = "1M";
+          size = "2G";
+          type = "EF00";
+          content = {
+            type = "filesystem";
+            format = "vfat";
+            extraArgs = [
+              "-F"
+              "32"
+              "-n"
+              "NIXBOOT"
+            ];
+            mountpoint = "/boot";
+            mountOptions = [
+              "fmask=0077"
+              "dmask=0077"
+            ];
+          };
+        };
 
-  fileSystems."/srv" = {
-    device = "/dev/disk/by-label/NIXROOT";
-    fsType = "btrfs";
-    options = [ "subvol=@srv" ] ++ rootOptions;
-  };
-
-  fileSystems."/var/cache" = {
-    device = "/dev/disk/by-label/NIXROOT";
-    fsType = "btrfs";
-    options = [ "subvol=@cache" ] ++ rootOptions;
-  };
-
-  fileSystems."/var/tmp" = {
-    device = "/dev/disk/by-label/NIXROOT";
-    fsType = "btrfs";
-    options = [ "subvol=@tmp" ] ++ rootOptions;
-  };
-
-  fileSystems."/var/log" = {
-    device = "/dev/disk/by-label/NIXROOT";
-    fsType = "btrfs";
-    options = [ "subvol=@log" ] ++ rootOptions;
-  };
-
-  fileSystems."/boot" = {
-    device = "/dev/disk/by-label/NIXBOOT";
-    fsType = "vfat";
-    options = [
-      "fmask=0077"
-      "dmask=0077"
-    ];
+        NIXROOT = {
+          label = "NIXROOT";
+          size = "100%";
+          content = {
+            type = "btrfs";
+            extraArgs = [
+              "-f"
+              "-L"
+              "NIXROOT"
+            ];
+            subvolumes = {
+              "@" = {
+                mountpoint = "/";
+                mountOptions = rootOptions;
+              };
+              "@home" = {
+                mountpoint = "/home";
+                mountOptions = rootOptions;
+              };
+              "@srv" = {
+                mountpoint = "/srv";
+                mountOptions = rootOptions;
+              };
+              "@cache" = {
+                mountpoint = "/var/cache";
+                mountOptions = rootOptions;
+              };
+              "@tmp" = {
+                mountpoint = "/var/tmp";
+                mountOptions = rootOptions;
+              };
+              "@log" = {
+                mountpoint = "/var/log";
+                mountOptions = rootOptions;
+              };
+            };
+          };
+        };
+      };
+    };
   };
 
   fileSystems."/mnt/SSD2" = {

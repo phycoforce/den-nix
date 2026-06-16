@@ -6,6 +6,7 @@
     nixos = {
       imports = [
         inputs.chaotic.nixosModules.default
+        inputs.disko.nixosModules.disko
 
         ./_nixos/base-system.nix
         ./_nixos/boot.nix
