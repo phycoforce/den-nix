@@ -16,8 +16,9 @@ Manager, and declarative disk provisioning through disko.
 - Disk provisioning: disko
 - Main disk: unencrypted Btrfs on `/dev/disk/by-id/nvme-eui.000000000000000100a0752448c2bd18`
 - Kernel: CachyOS kernel from Chaotic Nyx, `pkgs.linuxPackages_cachyos`
-- GPU: NVIDIA open kernel module for RTX 4080 SUPER
-- Desktop: Niri, launched by `greetd`/`tuigreet`
+- GPU drivers: AMDGPU plus NVIDIA with the NVIDIA open kernel module
+- Display manager: SDDM on Wayland, defaulting to the `niri` session
+- Desktop: Niri
 - Shell: Noctalia Shell v4, `git+https://github.com/noctalia-dev/noctalia?ref=legacy-v4`
 - Extra disk: keep existing Btrfs filesystem labeled `SSD2`, mounted at `/mnt/SSD2`
 
@@ -31,8 +32,7 @@ modules/
   hosts.nix            # host/user declaration
   nh.nix               # Den nh package exposure
   temperantia.nix      # host aspect
-  aaron.nix            # reusable user aspect
-  aaron-linux.nix      # Linux desktop user aspect for temperantia
+  aaron.nix            # aaron and aaron-linux user aspects
   _nixos/              # regular NixOS modules, ignored by import-tree
   _home/               # regular Home Manager modules, ignored by import-tree
 ```
@@ -53,11 +53,19 @@ distrobox enter nix -- nix --extra-experimental-features "nix-command flakes" bu
 After running `write-flake`, review any generated `flake.nix` changes before
 committing.
 
-## Fresh Install
+## Fresh Install From A NixOS Live ISO
 
 Boot a recent NixOS graphical or minimal installer ISO in UEFI mode.
 
 Disable Secure Boot in firmware. This starter does not sign boot files.
+
+Make sure the installer has network access before cloning or building:
+
+```sh
+ping -c 3 cache.nixos.org
+```
+
+On the minimal ISO, use `nmtui` first if Wi-Fi is needed.
 
 Become root:
 
@@ -65,7 +73,7 @@ Become root:
 sudo -i
 ```
 
-Confirm disks before running disko:
+Confirm disks before running disko. This is the destructive safety check:
 
 ```sh
 lsblk -f
@@ -85,14 +93,23 @@ The configured main disk is:
 /dev/disk/by-id/nvme-eui.000000000000000100a0752448c2bd18
 ```
 
-If the installer shows a different stable by-id path for the main OS disk,
-update `mainDisk` in `modules/_nixos/storage.nix` before running disko.
+Only run the disko command if that by-id path points at the OS disk that should
+be erased. If the installer shows a different stable by-id path for the main OS
+disk, update `mainDisk` in `modules/_nixos/storage.nix` before running disko.
+Do not use `/dev/nvme0n1` or another unstable kernel name in the config.
 
-Get the config onto the installer:
+Clone the config onto the installer:
 
 ```sh
 nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git -c \
   git clone https://github.com/phycoforce/den-nix /tmp/den-nix
+```
+
+If `mainDisk` needs to change, edit the clone now:
+
+```sh
+nix --extra-experimental-features "nix-command flakes" shell nixpkgs#nano -c \
+  nano /tmp/den-nix/modules/_nixos/storage.nix
 ```
 
 Run disko. This destroys, formats, and mounts only the configured main disk; it
@@ -117,10 +134,14 @@ Build and install the Den host:
 ```sh
 nixos-install \
   --flake /mnt/etc/nixos/den-desktop#temperantia \
+  --option extra-experimental-features "nix-command flakes" \
   --option accept-flake-config true \
   --option extra-substituters "https://nyx-cache.chaotic.cx/ https://noctalia.cachix.org https://nix-community.cachix.org" \
   --option extra-trusted-public-keys "nyx-cache.chaotic.cx:dJxTrgMC3V3cFfyIiBQDQorG6k1LsqurH/srpMSq7qk= noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
 ```
+
+When `nixos-install` prompts for a root password, set one. The `aaron` login
+password is set separately in the next step.
 
 Set the user password before rebooting:
 
@@ -138,8 +159,9 @@ reboot
 
 In firmware, keep Secure Boot disabled.
 
-Select the NixOS/systemd-boot entry. Log in as `aaron` through `tuigreet`; it
-should start `niri-session`.
+Select the NixOS/systemd-boot entry. Log in as `aaron` through SDDM. The
+default session is `niri`; choose Niri from SDDM's session selector if it is not
+already selected. A Steam gamescope session is also available.
 
 Niri should autostart:
 
@@ -152,9 +174,10 @@ Useful checks after login:
 ```sh
 uname -r
 systemctl status scx.service
+systemctl status display-manager.service
 nvidia-smi
 findmnt /mnt/SSD2
-pgrep -a 'niri|noctalia|xwayland-satellite'
+pgrep -a 'niri|noctalia|xwayland-satellite|polkit-kde'
 ```
 
 ## Rebuilds After Install
