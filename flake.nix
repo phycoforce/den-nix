@@ -1,5 +1,9 @@
+# DO-NOT-EDIT. This file was auto-generated using github:vic/flake-file.
+# Use `nix run .#write-flake` to regenerate it.
 {
   description = "Den starter for Aaron's NixOS desktop";
+
+  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 
   nixConfig = {
     extra-substituters = [
@@ -15,27 +19,28 @@
   };
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-
-    import-tree.url = "github:denful/import-tree";
+    chaotic.url = "github:chaotic-cx/nyx/nyxpkgs-unstable";
+    darwin = {
+      url = "github:nix-darwin/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     den.url = "github:denful/den";
-
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    flake-file.url = "github:denful/flake-file";
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # Provides linuxPackages_cachyos and its binary cache. Do not make it
-    # follow nixpkgs; Chaotic's cache depends on its own pinned nixpkgs.
-    chaotic.url = "github:chaotic-cx/nyx/nyxpkgs-unstable";
-
-    # Current CachyOS setup uses Noctalia Shell v4 via Quickshell.
+    import-tree.url = "github:denful/import-tree";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-lib.follows = "nixpkgs";
     noctalia.url = "git+https://github.com/noctalia-dev/noctalia?ref=legacy-v4";
   };
-
-  outputs = inputs:
-    (inputs.nixpkgs.lib.evalModules {
-      modules = [ (inputs.import-tree ./modules) ];
-      specialArgs = { inherit inputs; };
-    }).config.flake;
 }
