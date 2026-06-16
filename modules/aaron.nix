@@ -26,6 +26,7 @@
   den.aspects.aaron-linux = {
     includes = [
       den.aspects.aaron
+      (den.batteries.unfree [ "1password" ])
       den.aspects.communication
       den.aspects.development
       den.aspects.gaming
