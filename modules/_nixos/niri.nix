@@ -5,6 +5,13 @@
     useNautilus = true;
   };
 
+  programs.qylock = {
+    enable = true;
+    theme = "pixel-night-city";
+    sddm.enable = true;
+    quickshell.enable = false;
+  };
+
   services = {
     xserver.enable = true;
     libinput.enable = true;
@@ -13,7 +20,7 @@
       defaultSession = "niri";
       sddm = {
         enable = true;
-        theme = "breeze";
+        theme = "pixel-night-city";
         # Keep the greeter on X11 for reliable mouse input before login.
         wayland.enable = false;
         extraPackages = with pkgs.kdePackages; [
