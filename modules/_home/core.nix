@@ -58,9 +58,23 @@ in
     size = 32;
   };
 
+  gtk = {
+    enable = true;
+    iconTheme = {
+      name = "Mint-X";
+      package = pkgs.mint-x-icons;
+    };
+  };
+
+  qt = {
+    enable = true;
+    platformTheme.name = "gtk3";
+  };
+
   home.sessionVariables = {
     BROWSER = "firefox";
     EDITOR = "nano";
+    ICON_THEME = "Mint-X";
     NIXOS_OZONE_WL = "1";
     TERMINAL = "ghostty";
     XCURSOR_SIZE = "32";

@@ -225,7 +225,7 @@ in
           ELECTRON_OZONE_PLATFORM_HINT "auto"
           NIXOS_OZONE_WL "1"
           QT_QPA_PLATFORM "wayland"
-          QT_QPA_PLATFORMTHEME "qt6ct"
+          QT_QPA_PLATFORMTHEME "gtk3"
           QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
           STARSHIP_CONFIG "${starshipConfigPath}"
           XCURSOR_SIZE "32"
