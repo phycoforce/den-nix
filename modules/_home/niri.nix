@@ -1,6 +1,48 @@
-{ pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   noctaliaIpc = "noctalia-shell ipc call";
+  starshipConfigPath = "${config.xdg.configHome}/noctalia/starship.toml";
+  niriNoctaliaConfig = pkgs.writeText "niri-noctalia.kdl" ''
+    layout {
+        focus-ring {
+            active-color "#cba6f7"
+            inactive-color "#1e1e2e"
+            urgent-color "#f38ba8"
+        }
+
+        border {
+            active-color "#cba6f7"
+            inactive-color "#1e1e2e"
+            urgent-color "#f38ba8"
+        }
+
+        shadow {
+            color "#11111b70"
+        }
+
+        tab-indicator {
+            active-color "#cba6f7"
+            inactive-color "#6b02e9"
+            urgent-color "#f38ba8"
+        }
+
+        insert-hint {
+            color "#cba6f780"
+        }
+    }
+
+    recent-windows {
+        highlight {
+            active-color "#cba6f7"
+            urgent-color "#f38ba8"
+        }
+    }
+  '';
 in
 {
   xdg.configFile = {
@@ -183,8 +225,9 @@ in
           ELECTRON_OZONE_PLATFORM_HINT "auto"
           NIXOS_OZONE_WL "1"
           QT_QPA_PLATFORM "wayland"
-          QT_QPA_PLATFORMTHEME "gtk3"
+          QT_QPA_PLATFORMTHEME "qt6ct"
           QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+          STARSHIP_CONFIG "${starshipConfigPath}"
           XDG_CURRENT_DESKTOP "niri"
           XDG_SESSION_TYPE "wayland"
       }
@@ -216,41 +259,16 @@ in
       }
     '';
 
-    "niri/noctalia.kdl".text = ''
-      layout {
-          focus-ring {
-              active-color "#cba6f7"
-              inactive-color "#1e1e2e"
-              urgent-color "#f38ba8"
-          }
-
-          border {
-              active-color "#cba6f7"
-              inactive-color "#1e1e2e"
-              urgent-color "#f38ba8"
-          }
-
-          shadow {
-              color "#11111b70"
-          }
-
-          tab-indicator {
-              active-color "#cba6f7"
-              inactive-color "#6b02e9"
-              urgent-color "#f38ba8"
-          }
-
-          insert-hint {
-              color "#cba6f780"
-          }
-      }
-
-      recent-windows {
-          highlight {
-              active-color "#cba6f7"
-              urgent-color "#f38ba8"
-          }
-      }
-    '';
   };
+
+  home.activation.niriNoctaliaConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    target="$HOME/.config/niri/noctalia.kdl"
+    seed="${niriNoctaliaConfig}"
+
+    mkdir -p "$(dirname "$target")"
+    if [ ! -e "$target" ] || [ -L "$target" ]; then
+      rm -f "$target"
+      ${pkgs.coreutils}/bin/install -m 0644 "$seed" "$target"
+    fi
+  '';
 }

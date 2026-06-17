@@ -4,6 +4,9 @@ let
     "gtk"
     "ghostty"
     "code"
+    "niri"
+    "qt"
+    "starship"
   ];
 
   activeTemplatesJson = builtins.toJSON (

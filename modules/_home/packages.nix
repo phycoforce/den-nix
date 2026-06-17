@@ -8,6 +8,7 @@
     htop
     hyprpicker
     kdePackages.kcalc
+    libsForQt5.qt5ct
     libnotify
     nautilus
     nano
@@ -16,6 +17,7 @@
     p7zip
     pavucontrol
     playerctl
+    qt6Packages.qt6ct
     slurp
     swappy
     usbutils

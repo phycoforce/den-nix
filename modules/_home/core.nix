@@ -1,4 +1,51 @@
-{ pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  starshipConfigPath = "${config.xdg.configHome}/noctalia/starship.toml";
+  starshipSettings = {
+    add_newline = true;
+    command_timeout = 200;
+    format = "[$directory$git_branch$git_status]($style)$character";
+
+    character = {
+      error_symbol = "[✗](bold cyan)";
+      success_symbol = "[❯](bold cyan)";
+    };
+
+    directory = {
+      truncation_length = 2;
+      truncation_symbol = "…/";
+      repo_root_style = "bold cyan";
+      repo_root_format = "[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) ";
+    };
+
+    git_branch = {
+      format = "[$branch]($style) ";
+      style = "italic cyan";
+    };
+
+    git_status = {
+      format = "[$all_status]($style)";
+      style = "cyan";
+      ahead = "⇡\${count} ";
+      diverged = "⇕⇡\${ahead_count}⇣\${behind_count} ";
+      behind = "⇣\${count} ";
+      conflicted = " ";
+      up_to_date = " ";
+      untracked = "? ";
+      modified = " ";
+      stashed = "";
+      staged = "";
+      renamed = "";
+      deleted = "";
+    };
+  };
+  starshipBaseConfig = (pkgs.formats.toml { }).generate "starship-base.toml" starshipSettings;
+in
 {
   programs.home-manager.enable = true;
 
@@ -72,44 +119,39 @@
   programs.starship = {
     enable = true;
     enableBashIntegration = true;
-    settings = {
-      add_newline = true;
-      command_timeout = 200;
-      format = "[$directory$git_branch$git_status]($style)$character";
-
-      character = {
-        error_symbol = "[✗](bold cyan)";
-        success_symbol = "[❯](bold cyan)";
-      };
-
-      directory = {
-        truncation_length = 2;
-        truncation_symbol = "…/";
-        repo_root_style = "bold cyan";
-        repo_root_format = "[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) ";
-      };
-
-      git_branch = {
-        format = "[$branch]($style) ";
-        style = "italic cyan";
-      };
-
-      git_status = {
-        format = "[$all_status]($style)";
-        style = "cyan";
-        ahead = "⇡\${count} ";
-        diverged = "⇕⇡\${ahead_count}⇣\${behind_count} ";
-        behind = "⇣\${count} ";
-        conflicted = " ";
-        up_to_date = " ";
-        untracked = "? ";
-        modified = " ";
-        stashed = "";
-        staged = "";
-        renamed = "";
-        deleted = "";
-      };
-    };
+    configPath = starshipConfigPath;
   };
 
+  home.activation.starshipNoctaliaConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    configFile="${starshipConfigPath}"
+    baseConfig="${starshipBaseConfig}"
+    markerBegin='# >>> NOCTALIA STARSHIP PALETTE >>>'
+    markerEnd='# <<< NOCTALIA STARSHIP PALETTE <<<'
+
+    mkdir -p "$(dirname "$configFile")"
+    tmp="$(${pkgs.coreutils}/bin/mktemp)"
+    paletteBlock="$(${pkgs.coreutils}/bin/mktemp)"
+    ${pkgs.coreutils}/bin/cp "$baseConfig" "$tmp"
+
+    if [ -f "$configFile" ]; then
+      if ${pkgs.gawk}/bin/awk -v begin="$markerBegin" -v end="$markerEnd" '
+        $0 == begin { capture = 1 }
+        capture { print }
+        $0 == end { found = 1; exit }
+        END { exit found ? 0 : 1 }
+      ' "$configFile" > "$paletteBlock"; then
+        if ${pkgs.gnugrep}/bin/grep -qE '^[[:space:]]*palette[[:space:]]*=' "$tmp"; then
+          ${pkgs.gnused}/bin/sed -i -E 's/^([[:space:]]*)palette([[:space:]]*)=.*/\1palette\2= "noctalia"/' "$tmp"
+        else
+          ${pkgs.gnused}/bin/sed -i '1i palette = "noctalia"' "$tmp"
+        fi
+
+        printf '\n' >> "$tmp"
+        ${pkgs.coreutils}/bin/cat "$paletteBlock" >> "$tmp"
+      fi
+    fi
+
+    ${pkgs.coreutils}/bin/install -m 0644 "$tmp" "$configFile"
+    rm -f "$tmp" "$paletteBlock"
+  '';
 }
