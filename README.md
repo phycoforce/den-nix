@@ -17,7 +17,7 @@ Manager, and declarative disk provisioning through disko.
 - Main disk: unencrypted Btrfs on `/dev/disk/by-id/nvme-eui.000000000000000100a0752448c2bd18`
 - Kernel: CachyOS kernel from Chaotic Nyx, `pkgs.linuxPackages_cachyos`
 - GPU drivers: AMDGPU plus NVIDIA with the NVIDIA open kernel module
-- Display manager: SDDM on Wayland, defaulting to the `niri` session
+- Display manager: SDDM on X11, defaulting to the `niri` session
 - Desktop: Niri
 - Shell: Noctalia Shell v4, `git+https://github.com/noctalia-dev/noctalia?ref=legacy-v4`
 - Extra disk: keep existing Btrfs filesystem labeled `SSD2`, mounted at `/mnt/SSD2`

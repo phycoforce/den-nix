@@ -6,12 +6,16 @@
   };
 
   services = {
+    xserver.enable = true;
+    libinput.enable = true;
+
     displayManager = {
       defaultSession = "niri";
       sddm = {
         enable = true;
         theme = "breeze";
-        wayland.enable = true;
+        # Keep the greeter on X11 for reliable mouse input before login.
+        wayland.enable = false;
         extraPackages = with pkgs.kdePackages; [
           breeze-icons
           kirigami
