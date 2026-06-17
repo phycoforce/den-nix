@@ -92,6 +92,12 @@
         programs.bash = {
           shellAliases.k = "kubectl";
           initExtra = ''
+            export KREW_ROOT="${krewRoot}"
+            case ":$PATH:" in
+              *":$KREW_ROOT/bin:"*) ;;
+              *) export PATH="$KREW_ROOT/bin:$PATH" ;;
+            esac
+
             if command -v kubectl >/dev/null 2>&1; then
               source <(kubectl completion bash)
               complete -o default -F __start_kubectl k
