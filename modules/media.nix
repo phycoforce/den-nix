@@ -11,9 +11,14 @@
 
     homeManager =
       { pkgs, ... }:
+      let
+        plexDesktop = pkgs.plex-desktop.override {
+          buildFHSEnv = args: pkgs.buildFHSEnv (args // { dieWithParent = false; });
+        };
+      in
       {
         home.packages = with pkgs; [
-          plex-desktop
+          plexDesktop
           plexamp
           spotify
         ];
