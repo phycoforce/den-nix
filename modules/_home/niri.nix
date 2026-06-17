@@ -228,6 +228,8 @@ in
           QT_QPA_PLATFORMTHEME "qt6ct"
           QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
           STARSHIP_CONFIG "${starshipConfigPath}"
+          XCURSOR_SIZE "32"
+          XCURSOR_THEME "Bibata-Modern-Classic"
           XDG_CURRENT_DESKTOP "niri"
           XDG_SESSION_TYPE "wayland"
       }

@@ -11,65 +11,81 @@
       };
     };
 
-    homeManager = { pkgs, ... }: {
-      programs.gh.enable = true;
+    homeManager =
+      { pkgs, ... }:
+      let
+        codexDesktop = inputs.codex-desktop.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop;
+        codexDesktopWayland = pkgs.symlinkJoin {
+          name = "codex-desktop-wayland";
+          paths = [ codexDesktop ];
+          buildInputs = [ pkgs.makeWrapper ];
+          postBuild = ''
+            wrapProgram "$out/bin/codex-desktop" \
+              --set CODEX_OZONE wayland \
+              --set XCURSOR_THEME Bibata-Modern-Classic \
+              --set XCURSOR_SIZE 32
+          '';
+        };
+      in
+      {
+        programs.gh.enable = true;
 
-      programs.vscode = {
-        enable = true;
-        package = pkgs.vscode;
+        programs.vscode = {
+          enable = true;
+          package = pkgs.vscode;
+        };
+
+        programs.mise = {
+          enable = true;
+          enableBashIntegration = true;
+          package = pkgs.mise;
+        };
+
+        programs.bash = {
+          shellAliases.k = "kubectl";
+          initExtra = ''
+            if command -v kubectl >/dev/null 2>&1; then
+              source <(kubectl completion bash)
+              complete -o default -F __start_kubectl k
+            fi
+          '';
+        };
+
+        home.packages = with pkgs; [
+          _1password-cli
+          age
+          cloudflared
+          codex
+          codexDesktopWayland
+          crane
+          distrobox
+          fluxcd
+          go-task
+          gum
+          helmfile
+          jq
+          just
+          k9s
+          krew
+          kubecolor
+          kubeconform
+          kubectl
+          kubernetes-helm
+          kustomize
+          minijinja
+          moreutils
+          opencode
+          opentofu
+          podman
+          podman-compose
+          sops
+          stern
+          talhelper
+          talosctl
+          viddy
+          winbox
+          yq
+        ];
       };
-
-      programs.mise = {
-        enable = true;
-        enableBashIntegration = true;
-        package = pkgs.mise;
-      };
-
-      programs.bash = {
-        shellAliases.k = "kubectl";
-        initExtra = ''
-          if command -v kubectl >/dev/null 2>&1; then
-            source <(kubectl completion bash)
-            complete -o default -F __start_kubectl k
-          fi
-        '';
-      };
-
-      home.packages = with pkgs; [
-        _1password-cli
-        age
-        cloudflared
-        codex
-        inputs.codex-desktop.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop
-        crane
-        distrobox
-        fluxcd
-        go-task
-        gum
-        helmfile
-        jq
-        just
-        k9s
-        krew
-        kubecolor
-        kubeconform
-        kubectl
-        kubernetes-helm
-        kustomize
-        minijinja
-        moreutils
-        opencode
-        opentofu
-        podman
-        podman-compose
-        sops
-        stern
-        talhelper
-        talosctl
-        viddy
-        winbox
-        yq
-      ];
-    };
   };
 }

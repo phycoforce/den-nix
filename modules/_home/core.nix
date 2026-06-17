@@ -49,11 +49,22 @@ in
 {
   programs.home-manager.enable = true;
 
+  home.pointerCursor = {
+    enable = true;
+    gtk.enable = true;
+    x11.enable = true;
+    name = "Bibata-Modern-Classic";
+    package = pkgs.bibata-cursors;
+    size = 32;
+  };
+
   home.sessionVariables = {
     BROWSER = "firefox";
     EDITOR = "nano";
     NIXOS_OZONE_WL = "1";
     TERMINAL = "ghostty";
+    XCURSOR_SIZE = "32";
+    XCURSOR_THEME = "Bibata-Modern-Classic";
   };
 
   home.file = {
