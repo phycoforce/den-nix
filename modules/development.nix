@@ -1,7 +1,13 @@
 { den, inputs, ... }:
 {
   den.aspects.development = {
-    includes = [ (den.batteries.unfree [ "1password-cli" "vscode" "winbox" ]) ];
+    includes = [
+      (den.batteries.unfree [
+        "1password-cli"
+        "vscode"
+        "winbox"
+      ])
+    ];
 
     provides.to-hosts.nixos = {
       virtualisation.podman = {
@@ -12,7 +18,12 @@
     };
 
     homeManager =
-      { pkgs, ... }:
+      {
+        config,
+        lib,
+        pkgs,
+        ...
+      }:
       let
         codexDesktop = inputs.codex-desktop.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop;
         codexDesktopWayland = pkgs.symlinkJoin {
@@ -26,8 +37,45 @@
               --set XCURSOR_SIZE 32
           '';
         };
+        krewRoot = "${config.home.homeDirectory}/.krew";
+        krewPlugins = [
+          "browse-pvc"
+          "cert-manager"
+          "cnpg"
+          "node-shell"
+          "rook-ceph"
+          "view-secret"
+        ];
+        kubectlKrew = pkgs.writeShellScriptBin "kubectl-krew" ''
+          exec ${pkgs.krew}/bin/krew "$@"
+        '';
       in
       {
+        home.sessionPath = [ "${krewRoot}/bin" ];
+        home.sessionVariables.KREW_ROOT = krewRoot;
+
+        home.activation.krewPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          export KREW_ROOT="${krewRoot}"
+          export PATH="${krewRoot}/bin:${pkgs.krew}/bin:${pkgs.kubectl}/bin:$PATH"
+
+          ${pkgs.coreutils}/bin/mkdir -p "$KREW_ROOT"
+
+          installed="$(${pkgs.krew}/bin/krew list 2>/dev/null || true)"
+          missing=()
+          for plugin in ${lib.escapeShellArgs krewPlugins}; do
+            if ! printf '%s\n' "$installed" | ${pkgs.gnugrep}/bin/grep -qx "$plugin"; then
+              missing+=("$plugin")
+            fi
+          done
+
+          if [ "''${#missing[@]}" -gt 0 ]; then
+            ${pkgs.krew}/bin/krew update
+            for plugin in "''${missing[@]}"; do
+              ${pkgs.krew}/bin/krew install "$plugin"
+            done
+          fi
+        '';
+
         programs.gh.enable = true;
 
         programs.vscode = {
@@ -67,6 +115,7 @@
           just
           k9s
           krew
+          kubectlKrew
           kubecolor
           kubeconform
           kubectl
