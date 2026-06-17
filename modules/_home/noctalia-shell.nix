@@ -43,20 +43,30 @@ in
   home.activation.noctaliaActiveTemplates = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settingsFile="$HOME/.config/noctalia/settings.json"
     activeTemplates='${activeTemplatesJson}'
+    fontDefault="Noto Sans"
+    fontFixed="Noto Sans Mono"
 
     mkdir -p "$(dirname "$settingsFile")"
     tmp="$(${pkgs.coreutils}/bin/mktemp)"
 
     if [ -f "$settingsFile" ]; then
       if ! ${pkgs.jq}/bin/jq --argjson activeTemplates "$activeTemplates" \
-        '.templates.activeTemplates = $activeTemplates | .templates.enableUserTheming = (.templates.enableUserTheming // false)' \
+        --arg fontDefault "$fontDefault" \
+        --arg fontFixed "$fontFixed" \
+        '.templates.activeTemplates = $activeTemplates
+          | .templates.enableUserTheming = (.templates.enableUserTheming // false)
+          | .ui.fontDefault = $fontDefault
+          | .ui.fontFixed = $fontFixed' \
         "$settingsFile" > "$tmp"; then
         rm -f "$tmp"
         exit 1
       fi
     else
       ${pkgs.jq}/bin/jq -n --argjson activeTemplates "$activeTemplates" \
-        '{ templates: { activeTemplates: $activeTemplates, enableUserTheming: false } }' \
+        --arg fontDefault "$fontDefault" \
+        --arg fontFixed "$fontFixed" \
+        '{ templates: { activeTemplates: $activeTemplates, enableUserTheming: false },
+           ui: { fontDefault: $fontDefault, fontFixed: $fontFixed } }' \
         > "$tmp"
     fi
 
