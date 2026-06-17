@@ -38,13 +38,15 @@
   };
 
   environment.systemPackages = with pkgs; [
+    adw-gtk3
+    adwaita-icon-theme
+    capitaine-cursors
     ghostty
     gnome-icon-theme
     hicolor-icon-theme
     kdePackages.polkit-kde-agent-1
     kdePackages.breeze
     kdePackages.breeze-icons
-    mint-x-icons
     nautilus
     xwayland-satellite
   ];

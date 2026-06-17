@@ -53,16 +53,20 @@ in
     enable = true;
     gtk.enable = true;
     x11.enable = true;
-    name = "Bibata-Modern-Classic";
-    package = pkgs.bibata-cursors;
-    size = 32;
+    name = "capitaine-cursors";
+    package = pkgs.capitaine-cursors;
+    size = 24;
   };
 
   gtk = {
     enable = true;
+    theme = {
+      name = "adw-gtk3-dark";
+      package = pkgs.adw-gtk3;
+    };
     iconTheme = {
-      name = "Mint-X";
-      package = pkgs.mint-x-icons;
+      name = "Adwaita";
+      package = pkgs.adwaita-icon-theme;
     };
   };
 
@@ -74,11 +78,11 @@ in
   home.sessionVariables = {
     BROWSER = "firefox";
     EDITOR = "nano";
-    ICON_THEME = "Mint-X";
+    ICON_THEME = "Adwaita";
     NIXOS_OZONE_WL = "1";
     TERMINAL = "ghostty";
-    XCURSOR_SIZE = "32";
-    XCURSOR_THEME = "Bibata-Modern-Classic";
+    XCURSOR_SIZE = "24";
+    XCURSOR_THEME = "capitaine-cursors";
   };
 
   home.file = {

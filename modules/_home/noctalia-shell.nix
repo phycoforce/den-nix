@@ -56,7 +56,9 @@ in
         '.templates.activeTemplates = $activeTemplates
           | .templates.enableUserTheming = (.templates.enableUserTheming // false)
           | .ui.fontDefault = $fontDefault
-          | .ui.fontFixed = $fontFixed' \
+          | .ui.fontFixed = $fontFixed
+          | .location.autoLocate = true
+          | .location.name = ""' \
         "$settingsFile" > "$tmp"; then
         rm -f "$tmp"
         exit 1
@@ -66,7 +68,8 @@ in
         --arg fontDefault "$fontDefault" \
         --arg fontFixed "$fontFixed" \
         '{ templates: { activeTemplates: $activeTemplates, enableUserTheming: false },
-           ui: { fontDefault: $fontDefault, fontFixed: $fontFixed } }' \
+           ui: { fontDefault: $fontDefault, fontFixed: $fontFixed },
+           location: { autoLocate: true, name: "" } }' \
         > "$tmp"
     fi
 
