@@ -129,6 +129,7 @@
           kustomize
           minijinja
           moreutils
+          nixd
           opencode
           opentofu
           podman
