@@ -37,6 +37,8 @@
     gnome.gnome-keyring.enable = true;
   };
 
+  security.pam.services.sddm.enableGnomeKeyring = true;
+
   environment.systemPackages = with pkgs; [
     adw-gtk3
     adwaita-icon-theme
