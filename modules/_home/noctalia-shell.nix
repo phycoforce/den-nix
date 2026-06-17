@@ -1,3 +1,18 @@
+{ lib, pkgs, ... }:
+let
+  activeTemplates = [
+    "gtk"
+    "ghostty"
+    "code"
+  ];
+
+  activeTemplatesJson = builtins.toJSON (
+    map (id: {
+      inherit id;
+      enabled = true;
+    }) activeTemplates
+  );
+in
 {
   programs.noctalia-shell = {
     enable = true;
@@ -21,4 +36,28 @@
       mTertiary = "#94e2d5";
     };
   };
+
+  home.activation.noctaliaActiveTemplates = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    settingsFile="$HOME/.config/noctalia/settings.json"
+    activeTemplates='${activeTemplatesJson}'
+
+    mkdir -p "$(dirname "$settingsFile")"
+    tmp="$(${pkgs.coreutils}/bin/mktemp)"
+
+    if [ -f "$settingsFile" ]; then
+      if ! ${pkgs.jq}/bin/jq --argjson activeTemplates "$activeTemplates" \
+        '.templates.activeTemplates = $activeTemplates | .templates.enableUserTheming = (.templates.enableUserTheming // false)' \
+        "$settingsFile" > "$tmp"; then
+        rm -f "$tmp"
+        exit 1
+      fi
+    else
+      ${pkgs.jq}/bin/jq -n --argjson activeTemplates "$activeTemplates" \
+        '{ templates: { activeTemplates: $activeTemplates, enableUserTheming: false } }' \
+        > "$tmp"
+    fi
+
+    ${pkgs.coreutils}/bin/install -m 0644 "$tmp" "$settingsFile"
+    rm -f "$tmp"
+  '';
 }

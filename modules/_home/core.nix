@@ -112,11 +112,4 @@
     };
   };
 
-  programs.ghostty = {
-    enable = true;
-    settings = {
-      background-opacity = 0.9;
-      theme = "catppuccin-mocha";
-    };
-  };
 }
