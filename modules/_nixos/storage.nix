@@ -88,6 +88,8 @@ in
     };
   };
 
+  fileSystems."/boot".noCheck = true;
+
   fileSystems."/mnt/SSD2" = {
     device = "/dev/disk/by-label/SSD2";
     fsType = "btrfs";

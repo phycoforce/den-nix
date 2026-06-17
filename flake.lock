@@ -50,7 +50,7 @@
     "codex-dmg": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-KDsGUTYFLRZvNOVFoN1UbUYS/J6FBCfvCytFb4rbq5M=",
+        "narHash": "sha256-/0CfQkfKMFcOy+LqZIx9PFLcHquG3U5yyNTRdfVOwVc=",
         "type": "file",
         "url": "https://persistent.oaistatic.com/codex-app-prod/Codex.dmg"
       },
