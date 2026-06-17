@@ -119,6 +119,7 @@
           helmfile
           jq
           just
+          just-lsp
           k9s
           krew
           kubectlKrew
