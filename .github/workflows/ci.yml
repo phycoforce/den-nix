@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nix:
+    name: Nix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Nix store paths
+        uses: DeterminateSystems/magic-nix-cache-action@v14
+        with:
+          diagnostic-endpoint: ""
+          use-flakehub: false
+
+      - name: Check formatting
+        run: nix --accept-flake-config fmt -- --check $(git ls-files '*.nix')
+
+      - name: Check generated flake
+        run: |
+          nix --accept-flake-config run .#write-flake
+          git diff --exit-code flake.nix
+
+      - name: Check flake
+        run: nix flake check --accept-flake-config
+
+      - name: Check host build
+        run: nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --dry-run --accept-flake-config

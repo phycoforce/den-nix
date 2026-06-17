@@ -230,7 +230,8 @@ in
           STARSHIP_CONFIG "${starshipConfigPath}"
           XCURSOR_SIZE "32"
           XCURSOR_THEME "Bibata-Modern-Classic"
-          XDG_CURRENT_DESKTOP "niri"
+          XDG_CURRENT_DESKTOP "niri:GNOME"
+          XDG_SESSION_DESKTOP "niri"
           XDG_SESSION_TYPE "wayland"
       }
 
