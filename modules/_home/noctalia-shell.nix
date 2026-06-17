@@ -15,6 +15,44 @@ let
       enabled = true;
     }) activeTemplates
   );
+
+  sessionMenuPowerOptionsJson = builtins.toJSON [
+    {
+      action = "lock";
+      enabled = true;
+      keybind = "1";
+    }
+    {
+      action = "suspend";
+      enabled = true;
+      keybind = "2";
+    }
+    {
+      action = "hibernate";
+      enabled = false;
+      keybind = "";
+    }
+    {
+      action = "reboot";
+      enabled = true;
+      keybind = "3";
+    }
+    {
+      action = "logout";
+      enabled = true;
+      keybind = "4";
+    }
+    {
+      action = "shutdown";
+      enabled = true;
+      keybind = "5";
+    }
+    {
+      action = "rebootToUefi";
+      enabled = true;
+      keybind = "6";
+    }
+  ];
 in
 {
   programs.noctalia-shell = {
@@ -43,6 +81,7 @@ in
   home.activation.noctaliaActiveTemplates = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settingsFile="$HOME/.config/noctalia/settings.json"
     activeTemplates='${activeTemplatesJson}'
+    sessionMenuPowerOptions='${sessionMenuPowerOptionsJson}'
     fontDefault="Noto Sans"
     fontFixed="Noto Sans Mono"
 
@@ -51,6 +90,7 @@ in
 
     if [ -f "$settingsFile" ]; then
       if ! ${pkgs.jq}/bin/jq --argjson activeTemplates "$activeTemplates" \
+        --argjson sessionMenuPowerOptions "$sessionMenuPowerOptions" \
         --arg fontDefault "$fontDefault" \
         --arg fontFixed "$fontFixed" \
         '.templates.activeTemplates = $activeTemplates
@@ -58,18 +98,28 @@ in
           | .ui.fontDefault = $fontDefault
           | .ui.fontFixed = $fontFixed
           | .location.autoLocate = true
-          | .location.name = ""' \
+          | .location.name = ""
+          | .sessionMenu.largeButtonsStyle = false
+          | .sessionMenu.powerOptions = ((.sessionMenu.powerOptions // $sessionMenuPowerOptions) | map(
+              if .action == "hibernate" then .enabled = false | .keybind = "" else . end
+            )
+            )' \
         "$settingsFile" > "$tmp"; then
         rm -f "$tmp"
         exit 1
       fi
     else
       ${pkgs.jq}/bin/jq -n --argjson activeTemplates "$activeTemplates" \
+        --argjson sessionMenuPowerOptions "$sessionMenuPowerOptions" \
         --arg fontDefault "$fontDefault" \
         --arg fontFixed "$fontFixed" \
         '{ templates: { activeTemplates: $activeTemplates, enableUserTheming: false },
            ui: { fontDefault: $fontDefault, fontFixed: $fontFixed },
-           location: { autoLocate: true, name: "" } }' \
+           location: { autoLocate: true, name: "" },
+           sessionMenu: {
+             largeButtonsStyle: false,
+             powerOptions: $sessionMenuPowerOptions
+           } }' \
         > "$tmp"
     fi
 
