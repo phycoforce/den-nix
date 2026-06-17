@@ -7,6 +7,7 @@
       imports = [
         inputs.chaotic.nixosModules.default
         inputs.disko.nixosModules.disko
+        inputs.qylock.nixosModules.default
 
         ./_nixos/base-system.nix
         ./_nixos/boot.nix

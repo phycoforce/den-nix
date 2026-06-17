@@ -61,6 +61,11 @@
 
       # Current CachyOS setup uses Noctalia Shell v4 via Quickshell.
       noctalia.url = "git+https://github.com/noctalia-dev/noctalia?ref=legacy-v4";
+
+      qylock = {
+        url = "github:Darkkal44/qylock";
+        inputs.nixpkgs.follows = "nixpkgs";
+      };
     };
   };
 }
