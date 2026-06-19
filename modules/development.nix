@@ -40,8 +40,13 @@
               --set XCURSOR_THEME Bibata-Modern-Classic \
               --set XCURSOR_SIZE 32
 
-            if [ -f "$out/share/applications/codex-desktop.desktop" ]; then
-              substituteInPlace "$out/share/applications/codex-desktop.desktop" \
+            desktopFile="$out/share/applications/codex-desktop.desktop"
+            if [ -f "$desktopFile" ]; then
+              rm "$desktopFile"
+              install -Dm0644 \
+                "${codexDesktopRemoteMobileControl}/share/applications/codex-desktop.desktop" \
+                "$desktopFile"
+              substituteInPlace "$desktopFile" \
                 --replace-fail "${codexDesktopRemoteMobileControl}/bin/codex-desktop" "$out/bin/codex-desktop"
             fi
           '';
