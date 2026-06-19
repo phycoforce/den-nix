@@ -24,39 +24,25 @@
         "type": "github"
       }
     },
-    "codex-desktop": {
+    "codex-desktop-linux": {
       "inputs": {
-        "codex-dmg": [
-          "codex-dmg"
-        ],
+        "flake-utils": "flake-utils",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1781446882,
-        "narHash": "sha256-OYb+ZCKv5SoPeXNOvRqAzbkGazQtNufBZKtb1r2xpuQ=",
-        "owner": "benwbooth",
-        "repo": "codex-desktop-nix",
-        "rev": "85e6e443398932b23f1b132ff44c7574befb3e1b",
+        "lastModified": 1781871480,
+        "narHash": "sha256-IT1lYU5pW+725YMzZwQGGw+E7HI3CxtXbe5DE0qcsbY=",
+        "owner": "ilysenko",
+        "repo": "codex-desktop-linux",
+        "rev": "f46cc63ad1494cca6618a5a3fe853be98968a2cd",
         "type": "github"
       },
       "original": {
-        "owner": "benwbooth",
-        "repo": "codex-desktop-nix",
+        "owner": "ilysenko",
+        "repo": "codex-desktop-linux",
         "type": "github"
-      }
-    },
-    "codex-dmg": {
-      "flake": false,
-      "locked": {
-        "narHash": "sha256-2HhHHYvmIVipQ2JmW/RkDYsgNtTVUiW+tSqMxi0jjSM=",
-        "type": "file",
-        "url": "https://persistent.oaistatic.com/codex-app-prod/Codex.dmg"
-      },
-      "original": {
-        "type": "file",
-        "url": "https://persistent.oaistatic.com/codex-app-prod/Codex.dmg"
       }
     },
     "darwin": {
@@ -165,7 +151,25 @@
     },
     "flake-utils": {
       "inputs": {
-        "systems": "systems_2"
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "flake-utils_2": {
+      "inputs": {
+        "systems": "systems_3"
       },
       "locked": {
         "lastModified": 1731533236,
@@ -361,7 +365,7 @@
           "noctalia",
           "nixpkgs"
         ],
-        "systems": "systems",
+        "systems": "systems_2",
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
@@ -380,7 +384,7 @@
     },
     "qylock": {
       "inputs": {
-        "flake-utils": "flake-utils",
+        "flake-utils": "flake-utils_2",
         "nixpkgs": [
           "nixpkgs"
         ]
@@ -402,8 +406,7 @@
     "root": {
       "inputs": {
         "chaotic": "chaotic",
-        "codex-desktop": "codex-desktop",
-        "codex-dmg": "codex-dmg",
+        "codex-desktop-linux": "codex-desktop-linux",
         "darwin": "darwin",
         "den": "den",
         "disko": "disko",
@@ -442,6 +445,21 @@
     },
     "systems": {
       "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "systems_2": {
+      "locked": {
         "lastModified": 1689347949,
         "narHash": "sha256-12tWmuL2zgBgZkdoB6qXZsgJEH9LR3oUgpaQq2RbI80=",
         "owner": "nix-systems",
@@ -455,7 +473,7 @@
         "type": "github"
       }
     },
-    "systems_2": {
+    "systems_3": {
       "locked": {
         "lastModified": 1681028828,
         "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",

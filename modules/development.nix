@@ -25,16 +25,25 @@
         ...
       }:
       let
-        codexDesktop = inputs.codex-desktop.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop;
-        codexDesktopWayland = pkgs.symlinkJoin {
-          name = "codex-desktop-wayland";
-          paths = [ codexDesktop ];
-          buildInputs = [ pkgs.makeWrapper ];
+        codexDesktopRemoteMobileControl =
+          inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop-remote-mobile-control;
+        codexDesktopRemoteMobileControlWrapped = pkgs.symlinkJoin {
+          name = "codex-desktop-remote-mobile-control";
+          paths = [ codexDesktopRemoteMobileControl ];
+          buildInputs = [
+            pkgs.makeWrapper
+            pkgs.gnused
+          ];
           postBuild = ''
             wrapProgram "$out/bin/codex-desktop" \
-              --set CODEX_OZONE wayland \
+              --set-default CODEX_CLI_PATH ${lib.getExe pkgs.codex} \
               --set XCURSOR_THEME Bibata-Modern-Classic \
               --set XCURSOR_SIZE 32
+
+            if [ -f "$out/share/applications/codex-desktop.desktop" ]; then
+              substituteInPlace "$out/share/applications/codex-desktop.desktop" \
+                --replace-fail "${codexDesktopRemoteMobileControl}/bin/codex-desktop" "$out/bin/codex-desktop"
+            fi
           '';
         };
         krewRoot = "${config.home.homeDirectory}/.krew";
@@ -110,7 +119,7 @@
           age
           cloudflared
           codex
-          codexDesktopWayland
+          codexDesktopRemoteMobileControlWrapped
           crane
           distrobox
           fluxcd

@@ -20,16 +20,9 @@
 
   inputs = {
     chaotic.url = "github:chaotic-cx/nyx/nyxpkgs-unstable";
-    codex-desktop = {
-      url = "github:benwbooth/codex-desktop-nix";
-      inputs = {
-        codex-dmg.follows = "codex-dmg";
-        nixpkgs.follows = "nixpkgs";
-      };
-    };
-    codex-dmg = {
-      url = "file+https://persistent.oaistatic.com/codex-app-prod/Codex.dmg";
-      flake = false;
+    codex-desktop-linux = {
+      url = "github:ilysenko/codex-desktop-linux";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     darwin = {
       url = "github:nix-darwin/nix-darwin";
