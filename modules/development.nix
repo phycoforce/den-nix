@@ -36,7 +36,6 @@
           ];
           postBuild = ''
             wrapProgram "$out/bin/codex-desktop" \
-              --set-default CODEX_CLI_PATH ${lib.getExe pkgs.codex} \
               --set XCURSOR_THEME Bibata-Modern-Classic \
               --set XCURSOR_SIZE 32
 
