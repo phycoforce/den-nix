@@ -145,6 +145,7 @@
           moreutils
           nixd
           opencode
+          openssl
           opentofu
           podman
           podman-compose
