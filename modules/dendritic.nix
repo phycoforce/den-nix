@@ -39,6 +39,11 @@
         inputs.nixpkgs.follows = "nixpkgs";
       };
 
+      opnix = {
+        url = "github:brizzbuzz/opnix";
+        inputs.nixpkgs.follows = "nixpkgs";
+      };
+
       darwin = {
         url = "github:nix-darwin/nix-darwin";
         inputs.nixpkgs.follows = "nixpkgs";

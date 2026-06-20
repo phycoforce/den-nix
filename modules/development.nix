@@ -25,6 +25,19 @@
         ...
       }:
       let
+        homeopsMcpConfigDir = "${config.xdg.configHome}/homeops-mcp";
+        homeopsMcpSecretDomainPath = "${homeopsMcpConfigDir}/secret-domain";
+        homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
+        opnixTokenFile = "${config.xdg.configHome}/opnix/token";
+        homeopsMcpEnv = ''
+          if [ -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
+            export HOMEOPS_SECRET_DOMAIN="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
+          fi
+
+          if [ -r ${lib.escapeShellArg homeopsMcpMeminiApiKeyPath} ]; then
+            export MEMINI_API_KEY="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpMeminiApiKeyPath})"
+          fi
+        '';
         codexDesktopRemoteMobileControl =
           inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop-remote-mobile-control;
         codexDesktopRemoteMobileControlWrapped = pkgs.symlinkJoin {
@@ -37,7 +50,8 @@
           postBuild = ''
             wrapProgram "$out/bin/codex-desktop" \
               --set XCURSOR_THEME Bibata-Modern-Classic \
-              --set XCURSOR_SIZE 32
+              --set XCURSOR_SIZE 32 \
+              --run ${lib.escapeShellArg homeopsMcpEnv}
 
             desktopFile="$out/share/applications/codex-desktop.desktop"
             if [ -f "$desktopFile" ]; then
@@ -50,6 +64,14 @@
             fi
           '';
         };
+        codexWrapped = pkgs.writeShellScriptBin "codex" ''
+          ${homeopsMcpEnv}
+          exec ${pkgs.codex}/bin/codex "$@"
+        '';
+        opencodeWrapped = pkgs.writeShellScriptBin "opencode" ''
+          ${homeopsMcpEnv}
+          exec ${pkgs.opencode}/bin/opencode "$@"
+        '';
         krewRoot = "${config.home.homeDirectory}/.krew";
         krewPlugins = [
           "browse-pvc"
@@ -64,8 +86,45 @@
         '';
       in
       {
+        imports = [ inputs.opnix.homeManagerModules.default ];
+
         home.sessionPath = [ "${krewRoot}/bin" ];
         home.sessionVariables.KREW_ROOT = krewRoot;
+
+        programs.onepassword-secrets = {
+          enable = true;
+          tokenFile = opnixTokenFile;
+          secrets = {
+            secretDomain = {
+              reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN";
+              path = ".config/homeops-mcp/secret-domain";
+              mode = "0600";
+            };
+            meminiApiKey = {
+              reference = "op://kubernetes/memini/MEMINI_API_KEY";
+              path = ".config/homeops-mcp/memini-api-key";
+              mode = "0600";
+            };
+          };
+        };
+
+        home.activation.homeopsMcpCodexConfig = lib.hm.dag.entryAfter [ "retrieveOpnixSecrets" ] ''
+          if [ -n "''${DRY_RUN_CMD:-}" ]; then
+            echo "Skipping HomeOps Codex MCP config during dry run"
+          elif [ ! -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
+            echo "WARNING: ${homeopsMcpSecretDomainPath} is missing; skipping HomeOps Codex MCP config" >&2
+          else
+            domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
+            if [ -z "$domain" ]; then
+              echo "WARNING: ${homeopsMcpSecretDomainPath} is empty; skipping HomeOps Codex MCP config" >&2
+            else
+              ${pkgs.codex}/bin/codex mcp remove homeops_toolhive >/dev/null 2>&1 || true
+              ${pkgs.codex}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
+              ${pkgs.codex}/bin/codex mcp add homeops_toolhive --url "https://mcp.$domain/mcp"
+              ${pkgs.codex}/bin/codex mcp add homeops_memini --url "https://memini.$domain/mcp" --bearer-token-env-var MEMINI_API_KEY
+            fi
+          fi
+        '';
 
         home.activation.krewPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           export KREW_ROOT="${krewRoot}"
@@ -118,11 +177,31 @@
           '';
         };
 
+        xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
+          "$schema" = "https://opencode.ai/config.json";
+          mcp = {
+            homeops_toolhive = {
+              type = "remote";
+              url = "https://mcp.{env:HOMEOPS_SECRET_DOMAIN}/mcp";
+              enabled = true;
+              timeout = 30000;
+            };
+            homeops_memini = {
+              type = "remote";
+              url = "https://memini.{env:HOMEOPS_SECRET_DOMAIN}/mcp";
+              enabled = true;
+              oauth = false;
+              headers.Authorization = "Bearer {env:MEMINI_API_KEY}";
+              timeout = 30000;
+            };
+          };
+        };
+
         home.packages = with pkgs; [
           _1password-cli
           age
           cloudflared
-          codex
+          codexWrapped
           codexDesktopRemoteMobileControlWrapped
           crane
           distrobox
@@ -144,7 +223,7 @@
           minijinja
           moreutils
           nixd
-          opencode
+          opencodeWrapped
           openssl
           opentofu
           podman
