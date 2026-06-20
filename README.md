@@ -205,6 +205,11 @@ still making the MCPs work from terminal and desktop launches. A devshell or
 devenv can be added later for repo-scoped workflows, but it does not replace the
 desktop launch path.
 
+If 1Password is temporarily unreachable during a rebuild, Home Manager keeps
+using the existing HomeOps MCP secret files when both generated files are
+present. A fresh bootstrap still requires network access to 1Password so OpNix
+can create the files the first time.
+
 Niri should autostart:
 
 - `xwayland-satellite`
