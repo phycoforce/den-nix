@@ -30,6 +30,7 @@
         homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
         opnixTokenFile = "${config.xdg.configHome}/opnix/token";
         opnixPackage = inputs.opnix.packages.${pkgs.stdenv.hostPlatform.system}.default;
+        mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
         homeopsMcpOpnixConfig = pkgs.writeText "homeops-mcp-opnix-secrets.json" (
           builtins.toJSON {
             secrets = [
@@ -187,6 +188,15 @@
           fi
         '';
 
+        home.activation.nixosMcpCodexConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          if [ -n "''${DRY_RUN_CMD:-}" ]; then
+            echo "Skipping NixOS Codex MCP config during dry run"
+          else
+            ${pkgs.codex}/bin/codex mcp remove nixos >/dev/null 2>&1 || true
+            ${pkgs.codex}/bin/codex mcp add nixos -- ${lib.escapeShellArg mcpNixosCommand}
+          fi
+        '';
+
         home.activation.krewPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           export KREW_ROOT="${krewRoot}"
           export PATH="${krewRoot}/bin:${pkgs.krew}/bin:${pkgs.kubectl}/bin:$PATH"
@@ -255,6 +265,12 @@
               headers.Authorization = "Bearer {env:MEMINI_API_KEY}";
               timeout = 30000;
             };
+            nixos = {
+              type = "local";
+              command = [ mcpNixosCommand ];
+              enabled = true;
+              timeout = 30000;
+            };
           };
         };
 
@@ -281,6 +297,7 @@
           kubectl
           kubernetes-helm
           kustomize
+          mcp-nixos
           minijinja
           moreutils
           nixd

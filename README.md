@@ -240,11 +240,14 @@ stat -c '%U:%G %a %n' \
 test -s ~/.config/homeops-mcp/secret-domain
 test -s ~/.config/homeops-mcp/memini-api-key
 
-codex mcp list | grep -E 'homeops_(toolhive|memini)'
+codex mcp list | grep -E 'homeops_(toolhive|memini)|nixos'
 codex mcp get homeops_toolhive
 codex mcp get homeops_memini
+codex mcp get nixos
 
-jq '.mcp.homeops_toolhive, .mcp.homeops_memini' ~/.config/opencode/opencode.json
+jq '.mcp.homeops_toolhive, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
+
+command -v mcp-nixos
 
 for app in codex opencode codex-desktop; do
   wrapper="$(readlink -f "$(command -v "$app")")"
