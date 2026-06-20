@@ -198,7 +198,7 @@ resolved values to:
 ~/.config/homeops-mcp/memini-api-key
 ```
 
-Codex, Codex Desktop, and OpenCode are installed through thin launchers that
+Claude Code, Codex, Codex Desktop, and OpenCode are installed through thin launchers that
 source a shared HomeOps MCP environment loader at process start. This keeps the
 secrets out of the Nix store and out of the broad user session environment while
 still making the MCPs work from terminal and desktop launches. A devshell or
@@ -240,16 +240,20 @@ stat -c '%U:%G %a %n' \
 test -s ~/.config/homeops-mcp/secret-domain
 test -s ~/.config/homeops-mcp/memini-api-key
 
-codex mcp list | grep -E 'homeops_(toolhive|memini)|nixos'
+codex mcp list | grep -E 'homeops_toolhive|memini|nixos'
 codex mcp get homeops_toolhive
-codex mcp get homeops_memini
+codex mcp get memini
 codex mcp get nixos
+claude plugin list --json | jq '.[] | select(.id == "memini@memini")'
+codex plugin list | grep 'memini@claude-memini'
 
-jq '.mcp.homeops_toolhive, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
+jq '.plugin, .mcp.homeops_toolhive, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
 
 command -v mcp-nixos
+command -v claude
+command -v node
 
-for app in codex opencode codex-desktop; do
+for app in claude codex opencode codex-desktop; do
   wrapper="$(readlink -f "$(command -v "$app")")"
   loader="$(grep -ho '/nix/store/[^ "]*homeops-mcp-env' "$wrapper" | head -n1)"
   printf '%s -> %s\n' "$app" "$loader"
@@ -259,9 +263,24 @@ done
 ```
 
 The expected ownership mode for the token and generated secret files is
-`aaron:aaron 600`. The Codex `homeops_memini` entry should show
-`bearer_token_env_var = "MEMINI_API_KEY"`; the token value itself should not
-appear in Codex config.
+`aaron:aaron 600`. Claude Code should show `memini@memini`; Codex should show
+`memini@claude-memini` and a concrete `memini` MCP URL using
+`MEMINI_TOKEN` as its bearer-token environment variable. Codex mounts the Memini
+plugin from Claude Code's installed plugin cache through a small local
+marketplace bridge, but declares the MCP URL separately because Codex does not
+expand the Claude-style `${MEMINI_MCP_URL:-...}` URL expression from the upstream
+`.mcp.json`. There should be no separate `homeops_memini` MCP entry. OpenCode
+should show `@eleboucher/opencode-memini` in its `plugin` array and `null` for
+`.mcp.homeops_memini`. The token value itself should not appear in Codex or
+OpenCode config.
+
+Home Manager installs Memini through Claude Code's plugin CLI when missing. The
+equivalent interactive Claude Code commands are:
+
+```text
+/plugin marketplace add eleboucher/memini
+/plugin install memini
+```
 
 To check basic endpoint reachability without printing secrets:
 
