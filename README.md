@@ -198,6 +198,13 @@ resolved values to:
 ~/.config/homeops-mcp/memini-api-key
 ```
 
+Codex, Codex Desktop, and OpenCode are installed through thin launchers that
+source a shared HomeOps MCP environment loader at process start. This keeps the
+secrets out of the Nix store and out of the broad user session environment while
+still making the MCPs work from terminal and desktop launches. A devshell or
+devenv can be added later for repo-scoped workflows, but it does not replace the
+desktop launch path.
+
 Niri should autostart:
 
 - `xwayland-satellite`
@@ -234,10 +241,13 @@ codex mcp get homeops_memini
 
 jq '.mcp.homeops_toolhive, .mcp.homeops_memini' ~/.config/opencode/opencode.json
 
-grep -H 'HOMEOPS_SECRET_DOMAIN\|MEMINI_API_KEY' \
-  "$(readlink -f "$(command -v codex)")" \
-  "$(readlink -f "$(command -v opencode)")" \
-  "$(readlink -f "$(command -v codex-desktop)")"
+for app in codex opencode codex-desktop; do
+  wrapper="$(readlink -f "$(command -v "$app")")"
+  loader="$(grep -ho '/nix/store/[^ "]*homeops-mcp-env' "$wrapper" | head -n1)"
+  printf '%s -> %s\n' "$app" "$loader"
+  test -n "$loader"
+  grep -H 'HOMEOPS_SECRET_DOMAIN\|MEMINI_API_KEY' "$loader"
+done
 ```
 
 The expected ownership mode for the token and generated secret files is

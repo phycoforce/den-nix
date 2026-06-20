@@ -29,7 +29,7 @@
         homeopsMcpSecretDomainPath = "${homeopsMcpConfigDir}/secret-domain";
         homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
         opnixTokenFile = "${config.xdg.configHome}/opnix/token";
-        homeopsMcpEnv = ''
+        homeopsMcpEnvLoader = pkgs.writeText "homeops-mcp-env" ''
           if [ -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
             export HOMEOPS_SECRET_DOMAIN="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
           fi
@@ -38,6 +38,7 @@
             export MEMINI_API_KEY="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpMeminiApiKeyPath})"
           fi
         '';
+        sourceHomeopsMcpEnv = ". ${homeopsMcpEnvLoader}";
         codexDesktopRemoteMobileControl =
           inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop-remote-mobile-control;
         codexDesktopRemoteMobileControlWrapped = pkgs.symlinkJoin {
@@ -51,7 +52,7 @@
             wrapProgram "$out/bin/codex-desktop" \
               --set XCURSOR_THEME Bibata-Modern-Classic \
               --set XCURSOR_SIZE 32 \
-              --run ${lib.escapeShellArg homeopsMcpEnv}
+              --run ${lib.escapeShellArg sourceHomeopsMcpEnv}
 
             desktopFile="$out/share/applications/codex-desktop.desktop"
             if [ -f "$desktopFile" ]; then
@@ -65,11 +66,11 @@
           '';
         };
         codexWrapped = pkgs.writeShellScriptBin "codex" ''
-          ${homeopsMcpEnv}
+          ${sourceHomeopsMcpEnv}
           exec ${pkgs.codex}/bin/codex "$@"
         '';
         opencodeWrapped = pkgs.writeShellScriptBin "opencode" ''
-          ${homeopsMcpEnv}
+          ${sourceHomeopsMcpEnv}
           exec ${pkgs.opencode}/bin/opencode "$@"
         '';
         krewRoot = "${config.home.homeDirectory}/.krew";
