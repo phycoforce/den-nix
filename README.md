@@ -163,6 +163,41 @@ Select the NixOS/systemd-boot entry. Log in as `aaron` through SDDM. The
 default session is `niri`; choose Niri from SDDM's session selector if it is not
 already selected. A Steam gamescope session is also available.
 
+### 1Password / OpNix Bootstrap
+
+This desktop uses OpNix to pull local MCP client secrets from 1Password for
+Codex and OpenCode. Create a dedicated 1Password service account for the
+desktop, for example `temperantia-opnix`, with read-only access to these fields:
+
+```text
+op://kubernetes/cluster_secrets/SECRET_DOMAIN
+op://kubernetes/memini/MEMINI_API_KEY
+```
+
+Store that service account token locally before the first rebuild that needs
+Home Manager secret activation:
+
+```sh
+mkdir -p ~/.config/opnix
+nix run github:brizzbuzz/opnix -- token set -path ~/.config/opnix/token
+chmod 600 ~/.config/opnix/token
+```
+
+After OpNix is installed by the desktop config, the shorter form is available:
+
+```sh
+opnix token set -path ~/.config/opnix/token
+chmod 600 ~/.config/opnix/token
+```
+
+Do not commit the token or generated secret files. Home Manager writes the
+resolved values to:
+
+```text
+~/.config/homeops-mcp/secret-domain
+~/.config/homeops-mcp/memini-api-key
+```
+
 Niri should autostart:
 
 - `xwayland-satellite`
@@ -179,6 +214,54 @@ nvidia-smi
 findmnt /mnt/SSD2
 pgrep -a 'niri|noctalia|xwayland-satellite|polkit-kde'
 ```
+
+Useful checks for the OpNix-backed MCP setup:
+
+```sh
+systemctl status home-manager-aaron.service
+
+stat -c '%U:%G %a %n' \
+  ~/.config/opnix/token \
+  ~/.config/homeops-mcp/secret-domain \
+  ~/.config/homeops-mcp/memini-api-key
+
+test -s ~/.config/homeops-mcp/secret-domain
+test -s ~/.config/homeops-mcp/memini-api-key
+
+codex mcp list | grep -E 'homeops_(toolhive|memini)'
+codex mcp get homeops_toolhive
+codex mcp get homeops_memini
+
+jq '.mcp.homeops_toolhive, .mcp.homeops_memini' ~/.config/opencode/opencode.json
+
+grep -H 'HOMEOPS_SECRET_DOMAIN\|MEMINI_API_KEY' \
+  "$(readlink -f "$(command -v codex)")" \
+  "$(readlink -f "$(command -v opencode)")" \
+  "$(readlink -f "$(command -v codex-desktop)")"
+```
+
+The expected ownership mode for the token and generated secret files is
+`aaron:aaron 600`. The Codex `homeops_memini` entry should show
+`bearer_token_env_var = "MEMINI_API_KEY"`; the token value itself should not
+appear in Codex config.
+
+To check basic endpoint reachability without printing secrets:
+
+```sh
+domain="$(tr -d '\r\n' < ~/.config/homeops-mcp/secret-domain)"
+memini_key="$(tr -d '\r\n' < ~/.config/homeops-mcp/memini-api-key)"
+
+curl -sS -o /dev/null -w 'toolhive: %{http_code}\n' "https://mcp.$domain/mcp"
+curl -sS -o /dev/null -w 'memini: %{http_code}\n' \
+  -H "Authorization: Bearer $memini_key" \
+  "https://memini.$domain/mcp"
+
+unset memini_key
+```
+
+Plain `GET` requests to MCP endpoints may return `400` or `405`; that is still
+useful as a DNS/TLS/routing check. A DNS failure, timeout, or TLS error needs
+network or route investigation.
 
 ## Rebuilds After Install
 

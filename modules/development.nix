@@ -98,11 +98,13 @@
             secretDomain = {
               reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN";
               path = ".config/homeops-mcp/secret-domain";
+              group = "aaron";
               mode = "0600";
             };
             meminiApiKey = {
               reference = "op://kubernetes/memini/MEMINI_API_KEY";
               path = ".config/homeops-mcp/memini-api-key";
+              group = "aaron";
               mode = "0600";
             };
           };
