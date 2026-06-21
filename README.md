@@ -305,8 +305,16 @@ network or route investigation.
 After edits:
 
 ```sh
-sudo nixos-rebuild switch --flake /etc/nixos/den-desktop#temperantia
+sudo nixos-rebuild switch \
+  --flake /etc/nixos/den-desktop#temperantia \
+  --option accept-flake-config true \
+  --option extra-substituters "https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org" \
+  --option extra-trusted-public-keys "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc= noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
 ```
+
+The explicit cache options matter on the first rebuild after adding or changing
+binary caches, because the current Nix daemon cannot use cache settings from a
+generation that has not been built yet.
 
 Or with `nh`:
 
