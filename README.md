@@ -305,16 +305,26 @@ network or route investigation.
 After edits:
 
 ```sh
+extra_substituters="https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org"
+extra_trusted_keys="lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
+extra_trusted_keys="$extra_trusted_keys noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
+extra_trusted_keys="$extra_trusted_keys nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+
 sudo nixos-rebuild switch \
   --flake /etc/nixos/den-desktop#temperantia \
   --option accept-flake-config true \
-  --option extra-substituters "https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org" \
-  --option extra-trusted-public-keys "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc= noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+  --option extra-substituters "$extra_substituters" \
+  --option extra-trusted-public-keys "$extra_trusted_keys"
 ```
 
 The explicit cache options matter on the first rebuild after adding or changing
 binary caches, because the current Nix daemon cannot use cache settings from a
 generation that has not been built yet.
+
+For kernel or NVIDIA driver changes, use `nixos-rebuild boot` with the same
+cache options and reboot. A live `switch` can activate the new NVIDIA userspace
+while the machine is still running the old kernel, which can make
+`nvidia-persistenced.service` fail until the next boot.
 
 Or with `nh`:
 
