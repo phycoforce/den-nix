@@ -10,13 +10,11 @@
 
     nixConfig = {
       extra-substituters = [
-        "https://nyx-cache.chaotic.cx/"
         "https://attic.xuyh0120.win/lantian"
         "https://noctalia.cachix.org"
         "https://nix-community.cachix.org"
       ];
       extra-trusted-public-keys = [
-        "nyx-cache.chaotic.cx:dJxTrgMC3V3cFfyIiBQDQorG6k1LsqurH/srpMSq7qk="
         "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
         "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
         "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
@@ -55,10 +53,6 @@
         url = "github:nix-community/disko";
         inputs.nixpkgs.follows = "nixpkgs";
       };
-
-      # Provides Chaotic packages and modules. Do not make it follow nixpkgs;
-      # Chaotic's cache depends on its own pinned nixpkgs.
-      chaotic.url = "github:chaotic-cx/nyx/nyxpkgs-unstable";
 
       # Provides x86_64-v4 CachyOS kernel packages. Do not make it follow
       # nixpkgs; its cache depends on its own pinned nixpkgs.

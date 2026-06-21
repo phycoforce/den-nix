@@ -15,7 +15,7 @@ Manager, and declarative disk provisioning through disko.
 - Secure Boot: skipped; disable it in firmware before booting the installed system
 - Disk provisioning: disko
 - Main disk: unencrypted Btrfs on `/dev/disk/by-id/nvme-eui.000000000000000100a0752448c2bd18`
-- Kernel: CachyOS kernel from Chaotic Nyx, `pkgs.linuxPackages_cachyos`
+- Kernel: CachyOS x86_64-v4 kernel from `github:xddxdd/nix-cachyos-kernel`
 - GPU drivers: AMDGPU plus NVIDIA with the NVIDIA open kernel module
 - Display manager: SDDM on X11, defaulting to the `niri` session
 - Desktop: Niri
@@ -136,8 +136,8 @@ nixos-install \
   --flake /mnt/etc/nixos/den-desktop#temperantia \
   --option extra-experimental-features "nix-command flakes" \
   --option accept-flake-config true \
-  --option extra-substituters "https://nyx-cache.chaotic.cx/ https://noctalia.cachix.org https://nix-community.cachix.org" \
-  --option extra-trusted-public-keys "nyx-cache.chaotic.cx:dJxTrgMC3V3cFfyIiBQDQorG6k1LsqurH/srpMSq7qk= noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+  --option extra-substituters "https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org" \
+  --option extra-trusted-public-keys "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc= noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
 ```
 
 When `nixos-install` prompts for a root password, set one. The `aaron` login

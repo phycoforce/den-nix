@@ -5,7 +5,6 @@
 
     nixos = {
       imports = [
-        inputs.chaotic.nixosModules.default
         inputs.disko.nixosModules.disko
         inputs.qylock.nixosModules.default
         { nixpkgs.overlays = [ inputs.nix-cachyos-kernel.overlays.pinned ]; }
