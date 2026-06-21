@@ -1,8 +1,8 @@
 { pkgs, ... }:
 {
-  boot.kernelPackages = pkgs.linuxPackages_cachyos;
+  boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest-x86_64-v4;
 
-  # CachyOS kernels support sched-ext; Chaotic's module provides the service.
+  # CachyOS kernels support sched-ext; nixpkgs provides the service module.
   services.scx.enable = true;
   services.scx.scheduler = "scx_rustland";
   services.scx.extraArgs = [ ];

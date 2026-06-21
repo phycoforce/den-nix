@@ -20,7 +20,7 @@
           gamescopeSession.enable = true;
           protontricks.enable = true;
 
-          extraCompatPackages = [ pkgs.proton-cachyos ];
+          extraCompatPackages = [ pkgs.proton-ge-bin ];
 
           extraPackages = with pkgs; [
             alsa-plugins

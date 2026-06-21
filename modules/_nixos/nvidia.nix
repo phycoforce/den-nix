@@ -15,7 +15,7 @@
     nvidiaPersistenced = true;
     nvidiaSettings = true;
     open = true;
-    package = config.boot.kernelPackages.nvidiaPackages.production;
+    package = config.boot.kernelPackages.nvidiaPackages.latest;
     powerManagement.enable = false;
     powerManagement.finegrained = false;
   };
