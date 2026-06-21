@@ -8,6 +8,7 @@
         inputs.chaotic.nixosModules.default
         inputs.disko.nixosModules.disko
         inputs.qylock.nixosModules.default
+        { nixpkgs.overlays = [ inputs.nix-cachyos-kernel.overlays.pinned ]; }
 
         ./_nixos/base-system.nix
         ./_nixos/boot.nix
