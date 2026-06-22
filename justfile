@@ -41,4 +41,4 @@ switch:
     nix {{nix_flags}} run .#{{host}} -- switch
 
 switch-installed:
-    sudo nixos-rebuild switch --flake {{installed_flake}}
+    sudo nixos-rebuild switch --flake {{installed_flake}} {{nix_flags}}
