@@ -11,12 +11,6 @@
     ];
 
     provides.to-hosts.nixos = {
-      nixpkgs.overlays = [
-        (final: prev: {
-          codex = inputs.nixpkgs-codex.legacyPackages.${prev.stdenv.hostPlatform.system}.codex;
-        })
-      ];
-
       virtualisation.podman = {
         enable = true;
         dockerCompat = true;
@@ -39,6 +33,7 @@
         opnixPackage = inputs.opnix.packages.${pkgs.stdenv.hostPlatform.system}.default;
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
         codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
+        codexPackage = inputs.nixpkgs-codex.legacyPackages.${pkgs.stdenv.hostPlatform.system}.codex;
         claudeMeminiCodexMarketplaceDir = "${config.xdg.configHome}/codex-plugin-marketplaces/claude-memini";
         claudeMeminiCodexMarketplaceJson = pkgs.writeText "claude-memini-marketplace.json" (
           builtins.toJSON {
@@ -128,7 +123,7 @@
         codexWrapped = pkgs.writeShellScriptBin "codex" ''
           ${sourceHomeopsMcpEnv}
           export PATH=${lib.escapeShellArg codexHookPath}:$PATH
-          exec ${pkgs.codex}/bin/codex "$@"
+          exec ${codexPackage}/bin/codex "$@"
         '';
         claudeCodeWrapped = pkgs.writeShellScriptBin "claude" ''
           ${sourceHomeopsMcpEnv}
@@ -224,9 +219,9 @@
             if [ -z "$domain" ]; then
               echo "WARNING: ${homeopsMcpSecretDomainPath} is empty; skipping HomeOps Codex MCP config" >&2
             else
-              ${pkgs.codex}/bin/codex mcp remove homeops_toolhive >/dev/null 2>&1 || true
-              ${pkgs.codex}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
-              ${pkgs.codex}/bin/codex mcp add homeops_toolhive --url "https://mcp.$domain/mcp"
+              ${codexPackage}/bin/codex mcp remove homeops_toolhive >/dev/null 2>&1 || true
+              ${codexPackage}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
+              ${codexPackage}/bin/codex mcp add homeops_toolhive --url "https://mcp.$domain/mcp"
             fi
           fi
         '';
@@ -266,12 +261,12 @@
                   exit 1
                 fi
 
-                ${pkgs.codex}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
-                ${pkgs.codex}/bin/codex mcp remove memini >/dev/null 2>&1 || true
-                ${pkgs.codex}/bin/codex plugin remove memini --marketplace memini-upstream >/dev/null 2>&1 || true
-                ${pkgs.codex}/bin/codex plugin marketplace remove memini-upstream >/dev/null 2>&1 || true
-                ${pkgs.codex}/bin/codex plugin remove memini --marketplace claude-memini >/dev/null 2>&1 || true
-                ${pkgs.codex}/bin/codex plugin marketplace remove claude-memini >/dev/null 2>&1 || true
+                ${codexPackage}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
+                ${codexPackage}/bin/codex mcp remove memini >/dev/null 2>&1 || true
+                ${codexPackage}/bin/codex plugin remove memini --marketplace memini-upstream >/dev/null 2>&1 || true
+                ${codexPackage}/bin/codex plugin marketplace remove memini-upstream >/dev/null 2>&1 || true
+                ${codexPackage}/bin/codex plugin remove memini --marketplace claude-memini >/dev/null 2>&1 || true
+                ${codexPackage}/bin/codex plugin marketplace remove claude-memini >/dev/null 2>&1 || true
 
                 ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/.agents/plugins
                 ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/plugins
@@ -280,9 +275,9 @@
                   ${lib.escapeShellArg claudeMeminiCodexMarketplaceJson} \
                   ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/.agents/plugins/marketplace.json
 
-                ${pkgs.codex}/bin/codex plugin marketplace add ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir} >/dev/null
-                ${pkgs.codex}/bin/codex mcp add memini --url "https://memini.$domain/mcp" --bearer-token-env-var MEMINI_TOKEN
-                ${pkgs.codex}/bin/codex plugin add memini@claude-memini >/dev/null
+                ${codexPackage}/bin/codex plugin marketplace add ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir} >/dev/null
+                ${codexPackage}/bin/codex mcp add memini --url "https://memini.$domain/mcp" --bearer-token-env-var MEMINI_TOKEN
+                ${codexPackage}/bin/codex plugin add memini@claude-memini >/dev/null
               fi
             '';
 
@@ -290,8 +285,8 @@
           if [ -n "''${DRY_RUN_CMD:-}" ]; then
             echo "Skipping NixOS Codex MCP config during dry run"
           else
-            ${pkgs.codex}/bin/codex mcp remove nixos >/dev/null 2>&1 || true
-            ${pkgs.codex}/bin/codex mcp add nixos -- ${lib.escapeShellArg mcpNixosCommand}
+            ${codexPackage}/bin/codex mcp remove nixos >/dev/null 2>&1 || true
+            ${codexPackage}/bin/codex mcp add nixos -- ${lib.escapeShellArg mcpNixosCommand}
           fi
         '';
 
