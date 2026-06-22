@@ -91,6 +91,30 @@
             export MEMINI_BASE_URL="$MEMINI_URL"
             export MEMINI_REQUIRE_HTTPS=1
           fi
+
+          if [ -z "''${MEMINI_NAMESPACE:-}" ]; then
+            memini_project="$(${pkgs.git}/bin/git remote get-url origin 2>/dev/null || true)"
+            if [ -n "$memini_project" ]; then
+              memini_project="''${memini_project%/}"
+              memini_project="''${memini_project%.git}"
+              memini_project="''${memini_project##*/}"
+              memini_project="''${memini_project##*:}"
+            fi
+
+            if [ -z "$memini_project" ]; then
+              memini_project="$(${pkgs.git}/bin/git rev-parse --show-toplevel 2>/dev/null || true)"
+              memini_project="''${memini_project%/}"
+              memini_project="''${memini_project##*/}"
+            fi
+
+            if [ -z "$memini_project" ]; then
+              memini_project="$(${pkgs.coreutils}/bin/pwd -P)"
+              memini_project="''${memini_project%/}"
+              memini_project="''${memini_project##*/}"
+            fi
+
+            export MEMINI_NAMESPACE="$memini_project"
+          fi
         '';
         sourceHomeopsMcpEnv = ". ${homeopsMcpEnvLoader}";
         codexDesktopRemoteMobileControl =
@@ -132,6 +156,18 @@
         '';
         opencodeWrapped = pkgs.writeShellScriptBin "opencode" ''
           ${sourceHomeopsMcpEnv}
+          if [ "''${1-}" = "auth" ]; then
+            shift
+            exec ${pkgs.opencode}/bin/opencode --pure auth "$@"
+          fi
+          opencode_config_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+          if [ -r "$opencode_config_dir/package.json" ]; then
+            if [ -d "$opencode_config_dir/node_modules/@eleboucher/opencode-memini" ]; then
+              ${pkgs.bun}/bin/bun update --cwd "$opencode_config_dir" @eleboucher/opencode-memini >/dev/null 2>&1 || true
+            else
+              ${pkgs.bun}/bin/bun install --cwd "$opencode_config_dir" >/dev/null 2>&1 || true
+            fi
+          fi
           exec ${pkgs.opencode}/bin/opencode "$@"
         '';
         krewRoot = "${config.home.homeDirectory}/.krew";
@@ -343,13 +379,23 @@
 
         xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
-          plugin = [ "@eleboucher/opencode-memini" ];
           mcp = {
             homeops_toolhive = {
               type = "remote";
               url = "https://mcp.{env:HOMEOPS_SECRET_DOMAIN}/mcp";
               enabled = true;
               timeout = 30000;
+            };
+            memini = {
+              type = "remote";
+              url = "{env:MEMINI_MCP_URL}";
+              enabled = true;
+              oauth = false;
+              timeout = 30000;
+              headers = {
+                Authorization = "Bearer {env:MEMINI_TOKEN}";
+                "X-Memini-Namespace" = "{env:MEMINI_NAMESPACE}";
+              };
             };
             nixos = {
               type = "local";
@@ -358,6 +404,26 @@
               timeout = 30000;
             };
           };
+        };
+        xdg.configFile."opencode/package.json" = {
+          force = true;
+          text = builtins.toJSON {
+            dependencies = {
+              "@opencode-ai/plugin" = "1.17.7";
+              "@eleboucher/opencode-memini" = "latest";
+            };
+          };
+        };
+        xdg.configFile."opencode/plugins/memini.js" = {
+          force = true;
+          text = ''
+            import { createRequire } from "node:module";
+
+            const require = createRequire(`''${process.env.HOME}/.config/opencode/package.json`);
+            const { default: MeminiPlugin } = await import(require.resolve("@eleboucher/opencode-memini"));
+
+            export const Memini = MeminiPlugin;
+          '';
         };
 
         home.packages = with pkgs; [

@@ -247,7 +247,10 @@ codex mcp get nixos
 claude plugin list --json | jq '.[] | select(.id == "memini@memini")'
 codex plugin list | grep 'memini@claude-memini'
 
-jq '.plugin, .mcp.homeops_toolhive, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
+opencode mcp list | grep -E 'homeops_toolhive|memini|nixos'
+jq '.plugin, .mcp.homeops_toolhive, .mcp.memini, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
+test -s ~/.config/opencode/plugins/memini.js
+jq '.dependencies["@eleboucher/opencode-memini"]' ~/.config/opencode/package.json
 
 command -v mcp-nixos
 command -v claude
@@ -270,9 +273,11 @@ plugin from Claude Code's installed plugin cache through a small local
 marketplace bridge, but declares the MCP URL separately because Codex does not
 expand the Claude-style `${MEMINI_MCP_URL:-...}` URL expression from the upstream
 `.mcp.json`. There should be no separate `homeops_memini` MCP entry. OpenCode
-should show `@eleboucher/opencode-memini` in its `plugin` array and `null` for
-`.mcp.homeops_memini`. The token value itself should not appear in Codex or
-OpenCode config.
+should show a `memini` MCP entry, no direct npm package in its `plugin` array, a
+local `plugins/memini.js` shim, and `null` for `.mcp.homeops_memini`. The token
+value itself should not appear in Codex or OpenCode config. Normal OpenCode
+launches refresh the Memini npm dependency from `latest` with Bun before startup;
+`opencode auth` skips plugins and dependency refreshes through `--pure`.
 
 Home Manager installs Memini through Claude Code's plugin CLI when missing. The
 equivalent interactive Claude Code commands are:
