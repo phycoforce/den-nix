@@ -44,6 +44,7 @@
     import-tree.url = "github:denful/import-tree";
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-codex.url = "github:NixOS/nixpkgs/master";
     nixpkgs-lib.follows = "nixpkgs";
     noctalia.url = "git+https://github.com/noctalia-dev/noctalia?ref=legacy-v4";
     opnix = {

@@ -24,6 +24,7 @@
     inputs = {
       nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
       nixpkgs-lib.follows = "nixpkgs";
+      nixpkgs-codex.url = "github:NixOS/nixpkgs/master";
 
       import-tree.url = "github:denful/import-tree";
       flake-file.url = "github:denful/flake-file";

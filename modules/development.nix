@@ -11,6 +11,12 @@
     ];
 
     provides.to-hosts.nixos = {
+      nixpkgs.overlays = [
+        (final: prev: {
+          codex = inputs.nixpkgs-codex.legacyPackages.${prev.stdenv.hostPlatform.system}.codex;
+        })
+      ];
+
       virtualisation.podman = {
         enable = true;
         dockerCompat = true;
