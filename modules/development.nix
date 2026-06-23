@@ -160,15 +160,21 @@
             shift
             exec ${pkgs.opencode}/bin/opencode --pure auth "$@"
           fi
-          opencode_config_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
-          if [ -r "$opencode_config_dir/package.json" ]; then
-            if [ -d "$opencode_config_dir/node_modules/@eleboucher/opencode-memini" ]; then
-              ${pkgs.bun}/bin/bun update --cwd "$opencode_config_dir" @eleboucher/opencode-memini >/dev/null 2>&1 || true
-            else
-              ${pkgs.bun}/bin/bun install --cwd "$opencode_config_dir" >/dev/null 2>&1 || true
-            fi
-          fi
           exec ${pkgs.opencode}/bin/opencode "$@"
+        '';
+        opencodeMeminiUpdate = pkgs.writeShellScriptBin "opencode-memini-update" ''
+          set -eu
+          opencode_config_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+          if [ ! -r "$opencode_config_dir/package.json" ]; then
+            echo "ERROR: $opencode_config_dir/package.json is missing" >&2
+            exit 1
+          fi
+
+          if [ -d "$opencode_config_dir/node_modules/@eleboucher/opencode-memini" ]; then
+            exec ${pkgs.bun}/bin/bun update --cwd "$opencode_config_dir" @eleboucher/opencode-memini
+          fi
+
+          exec ${pkgs.bun}/bin/bun install --cwd "$opencode_config_dir"
         '';
         krewRoot = "${config.home.homeDirectory}/.krew";
         krewPlugins = [
@@ -409,7 +415,6 @@
           force = true;
           text = builtins.toJSON {
             dependencies = {
-              "@opencode-ai/plugin" = "1.17.7";
               "@eleboucher/opencode-memini" = "latest";
             };
           };
@@ -455,6 +460,7 @@
           moreutils
           nodejs_22
           nixd
+          opencodeMeminiUpdate
           opencodeWrapped
           openssl
           opentofu

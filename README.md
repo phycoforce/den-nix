@@ -255,6 +255,7 @@ jq '.dependencies["@eleboucher/opencode-memini"]' ~/.config/opencode/package.jso
 command -v mcp-nixos
 command -v claude
 command -v node
+command -v opencode-memini-update
 
 for app in claude codex opencode codex-desktop; do
   wrapper="$(readlink -f "$(command -v "$app")")"
@@ -275,9 +276,11 @@ expand the Claude-style `${MEMINI_MCP_URL:-...}` URL expression from the upstrea
 `.mcp.json`. There should be no separate `homeops_memini` MCP entry. OpenCode
 should show a `memini` MCP entry, no direct npm package in its `plugin` array, a
 local `plugins/memini.js` shim, and `null` for `.mcp.homeops_memini`. The token
-value itself should not appear in Codex or OpenCode config. Normal OpenCode
-launches refresh the Memini npm dependency from `latest` with Bun before startup;
-`opencode auth` skips plugins and dependency refreshes through `--pure`.
+value itself should not appear in Codex or OpenCode config. The shim loads the
+Memini npm dependency declared in `~/.config/opencode/package.json`; run
+`opencode-memini-update` when you want to explicitly install or refresh it from
+`latest`. Normal OpenCode launches avoid extra wrapper-managed dependency work,
+and `opencode auth` skips plugins through `--pure`.
 
 Home Manager installs Memini through Claude Code's plugin CLI when missing. The
 equivalent interactive Claude Code commands are:
