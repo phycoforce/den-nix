@@ -60,6 +60,12 @@
 
           packages = [ "org.firestormviewer.FirestormViewer" ];
 
+          overrides."org.firestormviewer.FirestormViewer".Environment = {
+            __GLX_VENDOR_LIBRARY_NAME = "nvidia";
+            __NV_PRIME_RENDER_OFFLOAD = "1";
+            __VK_LAYER_NV_optimus = "NVIDIA_only";
+          };
+
           update.auto = {
             enable = true;
             onCalendar = "weekly";
