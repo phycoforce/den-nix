@@ -34,6 +34,27 @@
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
         codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
         codexPackage = inputs.nixpkgs-codex.legacyPackages.${pkgs.stdenv.hostPlatform.system}.codex;
+        claudeMeminiCodexMarketplaceDir = "${config.xdg.configHome}/codex-plugin-marketplaces/claude-memini";
+        claudeMeminiCodexMarketplaceJson = pkgs.writeText "claude-memini-marketplace.json" (
+          builtins.toJSON {
+            name = "claude-memini";
+            interface.displayName = "Claude Code Memini";
+            plugins = [
+              {
+                name = "memini";
+                source = {
+                  source = "local";
+                  path = "./plugins/memini";
+                };
+                policy = {
+                  installation = "AVAILABLE";
+                  authentication = "ON_INSTALL";
+                };
+                category = "Developer Tools";
+              }
+            ];
+          }
+        );
         homeopsMcpOpnixConfig = pkgs.writeText "homeops-mcp-opnix-secrets.json" (
           builtins.toJSON {
             secrets = [
@@ -277,6 +298,12 @@
                   ${pkgs.claude-code}/bin/claude plugin install memini >/dev/null
                 fi
 
+                memini_install_path="$(get_memini_install_path || true)"
+                if [ -z "$memini_install_path" ] || [ ! -d "$memini_install_path" ]; then
+                  echo "ERROR: Claude Code Memini plugin is not installed; cannot mount it for Codex" >&2
+                  exit 1
+                fi
+
                 ${codexPackage}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
                 ${codexPackage}/bin/codex mcp remove memini >/dev/null 2>&1 || true
                 ${codexPackage}/bin/codex plugin remove memini --marketplace memini-upstream >/dev/null 2>&1 || true
@@ -284,6 +311,29 @@
                 ${codexPackage}/bin/codex plugin remove memini --marketplace claude-memini >/dev/null 2>&1 || true
                 ${codexPackage}/bin/codex plugin marketplace remove claude-memini >/dev/null 2>&1 || true
 
+                ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/.agents/plugins
+                ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/plugins
+                bridge_plugin_dir=${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/plugins/memini
+                if [ -e "$bridge_plugin_dir" ] || [ -L "$bridge_plugin_dir" ]; then
+                  ${pkgs.coreutils}/bin/rm -rf "$bridge_plugin_dir"
+                fi
+                ${pkgs.coreutils}/bin/cp -a "$memini_install_path" "$bridge_plugin_dir"
+
+                for plugin_json in "$bridge_plugin_dir/hooks/hooks.json" "$bridge_plugin_dir/.mcp.json"; do
+                  if [ -f "$plugin_json" ]; then
+                    tmp_json="$plugin_json.tmp"
+                    ${pkgs.jq}/bin/jq 'del(.["//"])' "$plugin_json" > "$tmp_json"
+                    ${pkgs.coreutils}/bin/mv "$tmp_json" "$plugin_json"
+                  fi
+                done
+
+                ${pkgs.coreutils}/bin/install -Dm0644 \
+                  ${lib.escapeShellArg claudeMeminiCodexMarketplaceJson} \
+                  ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/.agents/plugins/marketplace.json
+
+                ${codexPackage}/bin/codex plugin marketplace add ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir} >/dev/null
+                ${codexPackage}/bin/codex plugin add memini@claude-memini >/dev/null
+                ${codexPackage}/bin/codex mcp remove memini >/dev/null 2>&1 || true
                 ${codexPackage}/bin/codex mcp add memini --url "https://memini.$domain/mcp" --bearer-token-env-var MEMINI_TOKEN
               fi
             '';

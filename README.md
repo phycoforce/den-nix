@@ -245,6 +245,8 @@ codex mcp get homeops_toolhive
 codex mcp get memini
 codex mcp get nixos
 claude plugin list --json | jq '.[] | select(.id == "memini@memini")'
+codex plugin list | grep 'memini@claude-memini'
+jq 'keys' ~/.config/codex-plugin-marketplaces/claude-memini/plugins/memini/hooks/hooks.json
 
 opencode mcp list | grep -E 'homeops_toolhive|memini|nixos'
 jq '.plugin, .mcp.homeops_toolhive, .mcp.memini, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
@@ -266,11 +268,12 @@ done
 ```
 
 The expected ownership mode for the token and generated secret files is
-`aaron:aaron 600`. Claude Code should show `memini@memini`; Codex should show a
-concrete `memini` MCP URL using `MEMINI_TOKEN` as its bearer-token environment
-variable. Codex uses Memini through direct MCP registration, matching upstream's
-Codex integration, rather than through the Claude plugin hooks. There should be
-no separate `homeops_memini` MCP entry. OpenCode
+`aaron:aaron 600`. Claude Code should show `memini@memini`; Codex should show
+`memini@claude-memini` plus a concrete `memini` MCP URL using `MEMINI_TOKEN` as
+its bearer-token environment variable. Codex mounts a local copy of the Claude
+plugin for hooks, with top-level JSON comment keys stripped for Codex's stricter
+hook parser, while the MCP server remains declared separately with the concrete
+remote URL. There should be no separate `homeops_memini` MCP entry. OpenCode
 should show a `memini` MCP entry, no direct npm package in its `plugin` array, a
 local `plugins/memini.js` shim, and `null` for `.mcp.homeops_memini`. The token
 value itself should not appear in Codex or OpenCode config. The shim loads the
