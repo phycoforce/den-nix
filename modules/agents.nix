@@ -125,6 +125,7 @@
         claudeCodeWrapped = pkgs.writeShellScriptBin "claude" ''
           ${sourceHomeopsMcpEnv}
           export PATH=${lib.escapeShellArg codexHookPath}:$PATH
+          export FORCE_AUTOUPDATE_PLUGINS=1
           exec ${pkgs.claude-code}/bin/claude "$@"
         '';
         opencodeWrapped = pkgs.writeShellScriptBin "opencode" ''
