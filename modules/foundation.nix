@@ -17,6 +17,7 @@
       let
         homeopsMcpConfigDir = "${config.xdg.configHome}/homeops-mcp";
         homeopsMcpSecretDomainPath = "${homeopsMcpConfigDir}/secret-domain";
+        homeopsMcpSecretDomain2Path = "${homeopsMcpConfigDir}/secret-domain-2";
         homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
         opnixTokenFile = "${config.xdg.configHome}/opnix/token";
         opnixPackage = inputs.opnix.packages.${pkgs.stdenv.hostPlatform.system}.default;
@@ -26,6 +27,13 @@
               {
                 path = ".config/homeops-mcp/secret-domain";
                 reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN";
+                owner = config.home.username;
+                group = "aaron";
+                mode = "0600";
+              }
+              {
+                path = ".config/homeops-mcp/secret-domain-2";
+                reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN_2";
                 owner = config.home.username;
                 group = "aaron";
                 mode = "0600";
@@ -54,6 +62,12 @@
               group = "aaron";
               mode = "0600";
             };
+            secretDomain2 = {
+              reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN_2";
+              path = ".config/homeops-mcp/secret-domain-2";
+              group = "aaron";
+              mode = "0600";
+            };
             meminiApiKey = {
               reference = "op://kubernetes/memini/MEMINI_API_KEY";
               path = ".config/homeops-mcp/memini-api-key";
@@ -67,6 +81,7 @@
           lib.hm.dag.entryAfter [ "createOpnixDirs" ] ''
             have_homeops_mcp_secrets() {
               [ -s ${lib.escapeShellArg homeopsMcpSecretDomainPath} ] \
+                && [ -s ${lib.escapeShellArg homeopsMcpSecretDomain2Path} ] \
                 && [ -s ${lib.escapeShellArg homeopsMcpMeminiApiKeyPath} ]
             }
 

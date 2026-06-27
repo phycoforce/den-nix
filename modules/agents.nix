@@ -18,6 +18,7 @@
       let
         homeopsMcpConfigDir = "${config.xdg.configHome}/homeops-mcp";
         homeopsMcpSecretDomainPath = "${homeopsMcpConfigDir}/secret-domain";
+        homeopsMcpSecretDomain2Path = "${homeopsMcpConfigDir}/secret-domain-2";
         homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
         codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
@@ -46,6 +47,10 @@
         homeopsMcpEnvLoader = pkgs.writeText "homeops-mcp-env" ''
           if [ -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
             export HOMEOPS_SECRET_DOMAIN="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
+          fi
+
+          if [ -r ${lib.escapeShellArg homeopsMcpSecretDomain2Path} ]; then
+            export HOMEOPS_SECRET_DOMAIN_2="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomain2Path})"
           fi
 
           if [ -r ${lib.escapeShellArg homeopsMcpMeminiApiKeyPath} ]; then
@@ -161,6 +166,18 @@
               ${codexPackage}/bin/codex mcp add homeops_toolhive --url "https://mcp.$domain/mcp"
             fi
           fi
+
+          if [ -r ${lib.escapeShellArg homeopsMcpSecretDomain2Path} ]; then
+            domain2="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomain2Path})"
+            if [ -z "$domain2" ]; then
+              echo "WARNING: ${homeopsMcpSecretDomain2Path} is empty; skipping konflate Codex MCP config" >&2
+            else
+              ${codexPackage}/bin/codex mcp remove konflate >/dev/null 2>&1 || true
+              ${codexPackage}/bin/codex mcp add konflate --url "https://konflate.$domain2/mcp"
+            fi
+          else
+            echo "WARNING: ${homeopsMcpSecretDomain2Path} is missing; skipping konflate Codex MCP config" >&2
+          fi
         '';
 
         home.activation.homeopsMcpClaudeConfig = lib.hm.dag.entryAfter [ "retrieveOpnixSecrets" ] ''
@@ -176,6 +193,18 @@
               ${pkgs.claude-code}/bin/claude mcp remove --scope user homeops_toolhive >/dev/null 2>&1 || true
               ${pkgs.claude-code}/bin/claude mcp add --scope user --transport http homeops_toolhive "https://mcp.$domain/mcp"
             fi
+          fi
+
+          if [ -r ${lib.escapeShellArg homeopsMcpSecretDomain2Path} ]; then
+            domain2="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomain2Path})"
+            if [ -z "$domain2" ]; then
+              echo "WARNING: ${homeopsMcpSecretDomain2Path} is empty; skipping konflate Claude MCP config" >&2
+            else
+              ${pkgs.claude-code}/bin/claude mcp remove --scope user konflate >/dev/null 2>&1 || true
+              ${pkgs.claude-code}/bin/claude mcp add --scope user --transport http konflate "https://konflate.$domain2/mcp"
+            fi
+          else
+            echo "WARNING: ${homeopsMcpSecretDomain2Path} is missing; skipping konflate Claude MCP config" >&2
           fi
         '';
 
@@ -273,6 +302,12 @@
             homeops_toolhive = {
               type = "remote";
               url = "https://mcp.{env:HOMEOPS_SECRET_DOMAIN}/mcp";
+              enabled = true;
+              timeout = 30000;
+            };
+            konflate = {
+              type = "remote";
+              url = "https://konflate.{env:HOMEOPS_SECRET_DOMAIN_2}/mcp";
               enabled = true;
               timeout = 30000;
             };
