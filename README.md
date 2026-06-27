@@ -245,9 +245,6 @@ codex mcp get homeops_toolhive
 codex mcp get memini
 codex mcp get nixos
 claude plugin list --json | jq '.[] | select(.id == "memini@memini")'
-claude plugin list --json | jq -r '.[] | select(.id == "memini@memini") | .version'
-codex plugin list | grep 'memini@claude-memini'
-jq 'keys' ~/.config/codex-plugin-marketplaces/claude-memini/plugins/memini/hooks/hooks.json
 
 opencode mcp list | grep -E 'homeops_toolhive|memini|nixos'
 jq '.plugin, .mcp.homeops_toolhive, .mcp.memini, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
@@ -269,16 +266,11 @@ done
 ```
 
 The expected ownership mode for the token and generated secret files is
-`aaron:aaron 600`. Claude Code should show `memini@memini`; Codex should show
-`memini@claude-memini` and a concrete `memini` MCP URL using
-`MEMINI_TOKEN` as its bearer-token environment variable. Codex mounts the Memini
-plugin from Claude Code's current installed plugin cache through a small local
-marketplace bridge. Home Manager updates that Claude plugin during activation,
-requires version `0.4.19` or newer, copies it into the bridge, and strips
-Codex-incompatible metadata keys from the bridge's `hooks/hooks.json` and
-`.mcp.json`. Codex declares the MCP URL separately because it does not expand the
-Claude-style `${MEMINI_MCP_URL:-...}` URL expression from the upstream `.mcp.json`.
-There should be no separate `homeops_memini` MCP entry. OpenCode
+`aaron:aaron 600`. Claude Code should show `memini@memini`; Codex should show a
+concrete `memini` MCP URL using `MEMINI_TOKEN` as its bearer-token environment
+variable. Codex uses Memini through direct MCP registration, matching upstream's
+Codex integration, rather than through the Claude plugin hooks. There should be
+no separate `homeops_memini` MCP entry. OpenCode
 should show a `memini` MCP entry, no direct npm package in its `plugin` array, a
 local `plugins/memini.js` shim, and `null` for `.mcp.homeops_memini`. The token
 value itself should not appear in Codex or OpenCode config. The shim loads the
