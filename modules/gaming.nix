@@ -1,4 +1,4 @@
-{ den, ... }:
+{ den, inputs, ... }:
 {
   den.aspects.gaming = {
     includes = [
@@ -13,6 +13,8 @@
     provides.to-hosts.nixos =
       { pkgs, ... }:
       {
+        imports = [ inputs.nix-flatpak.nixosModules.nix-flatpak ];
+
         boot.kernel.sysctl."kernel.split_lock_mitigate" = 0;
 
         programs.steam = {
@@ -50,6 +52,18 @@
             liberation_ttf
             wqy_zenhei
           ];
+        };
+
+        services.flatpak = {
+          enable = true;
+          uninstallUnmanaged = true;
+
+          packages = [ "org.firestormviewer.FirestormViewer" ];
+
+          update.auto = {
+            enable = true;
+            onCalendar = "weekly";
+          };
         };
       };
 

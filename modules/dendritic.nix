@@ -40,6 +40,8 @@
         inputs.nixpkgs.follows = "nixpkgs";
       };
 
+      nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.7.0";
+
       opnix = {
         url = "github:brizzbuzz/opnix";
         inputs.nixpkgs.follows = "nixpkgs";
