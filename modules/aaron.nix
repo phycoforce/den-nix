@@ -35,6 +35,7 @@
       (den.batteries.unfree [ "1password" ])
       den.aspects.communication
       den.aspects.development
+      den.aspects.agents
       den.aspects.gaming
       den.aspects.media
     ];
