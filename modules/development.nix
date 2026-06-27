@@ -268,6 +268,22 @@
           fi
         '';
 
+        home.activation.homeopsMcpClaudeConfig = lib.hm.dag.entryAfter [ "retrieveOpnixSecrets" ] ''
+          if [ -n "''${DRY_RUN_CMD:-}" ]; then
+            echo "Skipping HomeOps Claude MCP config during dry run"
+          elif [ ! -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
+            echo "WARNING: ${homeopsMcpSecretDomainPath} is missing; skipping HomeOps Claude MCP config" >&2
+          else
+            domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
+            if [ -z "$domain" ]; then
+              echo "WARNING: ${homeopsMcpSecretDomainPath} is empty; skipping HomeOps Claude MCP config" >&2
+            else
+              ${pkgs.claude-code}/bin/claude mcp remove --scope user homeops_toolhive >/dev/null 2>&1 || true
+              ${pkgs.claude-code}/bin/claude mcp add --scope user --transport http homeops_toolhive "https://mcp.$domain/mcp"
+            fi
+          fi
+        '';
+
         home.activation.meminiCodexPlugin =
           lib.hm.dag.entryAfter
             [
@@ -344,6 +360,15 @@
           else
             ${codexPackage}/bin/codex mcp remove nixos >/dev/null 2>&1 || true
             ${codexPackage}/bin/codex mcp add nixos -- ${lib.escapeShellArg mcpNixosCommand}
+          fi
+        '';
+
+        home.activation.nixosMcpClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          if [ -n "''${DRY_RUN_CMD:-}" ]; then
+            echo "Skipping NixOS Claude MCP config during dry run"
+          else
+            ${pkgs.claude-code}/bin/claude mcp remove --scope user nixos >/dev/null 2>&1 || true
+            ${pkgs.claude-code}/bin/claude mcp add --scope user --transport stdio nixos -- ${lib.escapeShellArg mcpNixosCommand}
           fi
         '';
 

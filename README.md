@@ -245,6 +245,9 @@ codex mcp get homeops_toolhive
 codex mcp get memini
 codex mcp get nixos
 claude plugin list --json | jq '.[] | select(.id == "memini@memini")'
+claude mcp list | grep -E 'homeops_toolhive|plugin:memini:memini|nixos'
+claude mcp get homeops_toolhive
+claude mcp get nixos
 codex plugin list | grep 'memini@claude-memini'
 jq 'keys' ~/.config/codex-plugin-marketplaces/claude-memini/plugins/memini/hooks/hooks.json
 
@@ -268,18 +271,20 @@ done
 ```
 
 The expected ownership mode for the token and generated secret files is
-`aaron:aaron 600`. Claude Code should show `memini@memini`; Codex should show
-`memini@claude-memini` plus a concrete `memini` MCP URL using `MEMINI_TOKEN` as
-its bearer-token environment variable. Codex mounts a local copy of the Claude
-plugin for hooks, with top-level JSON comment keys stripped for Codex's stricter
-hook parser, while the MCP server remains declared separately with the concrete
-remote URL. There should be no separate `homeops_memini` MCP entry. OpenCode
-should show a `memini` MCP entry, no direct npm package in its `plugin` array, a
-local `plugins/memini.js` shim, and `null` for `.mcp.homeops_memini`. The token
-value itself should not appear in Codex or OpenCode config. The shim loads the
-Memini npm dependency declared in `~/.config/opencode/package.json`; run
-`opencode-memini-update` when you want to explicitly install or refresh it from
-`latest`. Normal OpenCode launches avoid extra wrapper-managed dependency work,
+`aaron:aaron 600`. Claude Code should show `memini@memini` plus
+`homeops_toolhive`, `plugin:memini:memini`, and `nixos` MCP entries. Codex should
+show `memini@claude-memini` plus a concrete `memini` MCP URL using
+`MEMINI_TOKEN` as its bearer-token environment variable. Codex mounts a local
+copy of the Claude plugin for hooks, with top-level JSON comment keys stripped
+for Codex's stricter hook parser, while the MCP server remains declared
+separately with the concrete remote URL. There should be no separate
+`homeops_memini` MCP entry. OpenCode should show a `memini` MCP entry, no direct
+npm package in its `plugin` array, a local `plugins/memini.js` shim, and `null`
+for `.mcp.homeops_memini`. The token value itself should not appear in Codex or
+OpenCode config. The shim loads the Memini npm dependency declared in
+`~/.config/opencode/package.json`; run `opencode-memini-update` when you want to
+explicitly install or refresh it from `latest`. Normal OpenCode launches avoid
+extra wrapper-managed dependency work,
 and `opencode auth` skips plugins through `--pure`.
 
 Home Manager installs Memini through Claude Code's plugin CLI when missing. The
