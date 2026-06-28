@@ -14,6 +14,7 @@
         ./_nixos/cachyos-kernel.nix
         ./_nixos/cachyos-settings.nix
         ./_nixos/niri.nix
+        ./_nixos/nix-ld.nix
         ./_nixos/noctalia-support.nix
         ./_nixos/nvidia.nix
         ./_nixos/storage.nix
