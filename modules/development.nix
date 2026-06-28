@@ -75,6 +75,11 @@
           enable = true;
           enableBashIntegration = true;
           package = pkgs.mise;
+          # nixpkgs' mise defaults node.compile to true, which forces a
+          # from-source node build (and fails here: no C/C++ toolchain). The
+          # prebuilt node tarball runs fine via nix-ld (see _nixos/nix-ld.nix,
+          # which already provides libstdc++), so use it instead.
+          globalConfig.settings.node.compile = false;
         };
 
         programs.bash = {
