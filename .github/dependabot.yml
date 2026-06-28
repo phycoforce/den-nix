@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # Refresh flake.lock inputs. nixpkgs tracks the nixos-unstable branch, so this
+  # refreshes the locked rev rather than bumping a version - same as a manual
+  # `nix flake update`. All inputs are grouped into a single weekly PR.
+  - package-ecosystem: "nix"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      flake-inputs:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore"
+
+  # Keep the pinned GitHub Actions in .github/workflows/ci.yml current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore"
