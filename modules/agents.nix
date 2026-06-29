@@ -21,6 +21,7 @@
         homeopsMcpSecretDomain2Path = "${homeopsMcpConfigDir}/secret-domain-2";
         homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
+        playwrightMcpCommand = lib.getExe pkgs.playwright-mcp;
         codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
         codexPackage = inputs.nixpkgs-codex.legacyPackages.${pkgs.stdenv.hostPlatform.system}.codex;
         claudeMeminiCodexMarketplaceDir = "${config.xdg.configHome}/codex-plugin-marketplaces/claude-memini";
@@ -294,6 +295,15 @@
           else
             ${pkgs.claude-code}/bin/claude mcp remove --scope user nixos >/dev/null 2>&1 || true
             ${pkgs.claude-code}/bin/claude mcp add --scope user --transport stdio nixos -- ${lib.escapeShellArg mcpNixosCommand}
+          fi
+        '';
+
+        home.activation.playwrightMcpClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          if [ -n "''${DRY_RUN_CMD:-}" ]; then
+            echo "Skipping Playwright Claude MCP config during dry run"
+          else
+            ${pkgs.claude-code}/bin/claude mcp remove --scope user playwright >/dev/null 2>&1 || true
+            ${pkgs.claude-code}/bin/claude mcp add --scope user --transport stdio playwright -- ${lib.escapeShellArg playwrightMcpCommand}
           fi
         '';
 
