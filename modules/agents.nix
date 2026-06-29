@@ -21,7 +21,24 @@
         homeopsMcpSecretDomain2Path = "${homeopsMcpConfigDir}/secret-domain-2";
         homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
-        playwrightMcpCommand = lib.getExe pkgs.playwright-mcp;
+        # nixpkgs playwright-mcp defaults to downloading "chrome-for-testing" into its
+        # read-only PLAYWRIGHT_BROWSERS_PATH (a /nix/store path), which fails. Pin it to the
+        # version-matched Chromium that ships in pkgs.playwright-driver.browsers via
+        # --executable-path so it never tries to provision a browser at runtime. Scratch
+        # output goes to the XDG cache, never the project directory.
+        playwrightMcpWrapped = pkgs.writeShellScriptBin "playwright-mcp-nix" ''
+          set -eu
+          browsers='${pkgs.playwright-driver.browsers}'
+          chrome=$(set -- "$browsers"/chromium-*/chrome-linux*/chrome; printf '%s' "$1")
+          exec ${lib.getExe pkgs.playwright-mcp} \
+            --browser chrome \
+            --executable-path "$chrome" \
+            --headless \
+            --isolated \
+            --output-dir "''${XDG_CACHE_HOME:-$HOME/.cache}/playwright-mcp" \
+            "$@"
+        '';
+        playwrightMcpCommand = lib.getExe playwrightMcpWrapped;
         codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
         codexPackage = inputs.nixpkgs-codex.legacyPackages.${pkgs.stdenv.hostPlatform.system}.codex;
         claudeMeminiCodexMarketplaceDir = "${config.xdg.configHome}/codex-plugin-marketplaces/claude-memini";

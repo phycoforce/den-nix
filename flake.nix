@@ -7,11 +7,13 @@
 
   nixConfig = {
     extra-substituters = [
+      "https://cache.xinux.uz"
       "https://attic.xuyh0120.win/lantian"
       "https://noctalia.cachix.org"
       "https://nix-community.cachix.org"
     ];
     extra-trusted-public-keys = [
+      "cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0="
       "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
       "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="

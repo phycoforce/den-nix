@@ -15,15 +15,20 @@
       "aaron"
     ];
     extra-substituters = [
+      "https://cache.xinux.uz"
       "https://attic.xuyh0120.win/lantian"
       "https://noctalia.cachix.org"
       "https://nix-community.cachix.org"
     ];
     extra-trusted-public-keys = [
+      "cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0="
       "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
       "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
     ];
+    # A down/unreachable substituter (e.g. the IPv6-only lantian cache when IPv6
+    # is unavailable) fails in ~5s instead of stalling 15s × retries per path.
+    connect-timeout = 5;
     builders-use-substitutes = true;
   };
 
