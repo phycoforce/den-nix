@@ -20,5 +20,9 @@
     powerManagement.finegrained = false;
   };
 
+  # Generate a CDI spec at boot via nvidia-ctk so podman containers can access
+  # the GPU with `--device nvidia.com/gpu=all`. Provides nvidia-container-toolkit.
+  hardware.nvidia-container-toolkit.enable = true;
+
   boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 }
