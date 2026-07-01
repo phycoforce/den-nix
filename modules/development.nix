@@ -100,6 +100,7 @@
 
         home.packages = with pkgs; [
           age
+          ansible
           cloudflared
           crane
           distrobox
