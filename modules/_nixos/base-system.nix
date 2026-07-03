@@ -10,10 +10,6 @@
       "nix-command"
       "flakes"
     ];
-    trusted-users = [
-      "root"
-      "aaron"
-    ];
     extra-substituters = [
       "https://cache.xinux.uz"
       "https://attic.xuyh0120.win/lantian"
@@ -37,12 +33,6 @@
     dates = lib.mkDefault "weekly";
     options = lib.mkDefault "--delete-older-than 7d";
   };
-
-  nixpkgs.config = {
-    allowUnfree = true;
-    nvidia.acceptLicense = true;
-  };
-  nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
   hardware = {
     bluetooth.enable = true;
@@ -86,8 +76,6 @@
       openFirewall = true;
     };
     blueman.enable = true;
-    dbus.packages = [ pkgs.gcr ];
-    flatpak.enable = true;
     gvfs.enable = true;
     openssh.enable = false;
     pipewire = {

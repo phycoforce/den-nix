@@ -12,7 +12,7 @@
     "nixd": {
       "formatting": {
         "command": [
-          "alejandra"
+          "nixfmt"
         ]
       }
     }

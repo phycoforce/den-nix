@@ -1,3 +1,8 @@
 #LLM
 AGENTS.md
 CLAUDE.md
+
+# Nix
+result
+result-*
+.direnv/

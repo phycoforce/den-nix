@@ -5,5 +5,4 @@
   # CachyOS kernels support sched-ext; nixpkgs provides the service module.
   services.scx.enable = true;
   services.scx.scheduler = "scx_rustland";
-  services.scx.extraArgs = [ ];
 }

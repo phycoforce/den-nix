@@ -1,5 +1,10 @@
 { den, inputs, ... }:
 {
+  flake-file.inputs.opnix = {
+    url = "github:brizzbuzz/opnix";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+
   den.aspects.foundation = {
     includes = [
       (den.batteries.unfree [
@@ -10,42 +15,29 @@
     homeManager =
       {
         config,
+        inputs',
         lib,
         pkgs,
         ...
       }:
       let
-        homeopsMcpConfigDir = "${config.xdg.configHome}/homeops-mcp";
-        homeopsMcpSecretDomainPath = "${homeopsMcpConfigDir}/secret-domain";
-        homeopsMcpSecretDomain2Path = "${homeopsMcpConfigDir}/secret-domain-2";
-        homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
+        homeopsMcp = import ./_home/homeops-mcp-paths.nix config;
+        homeopsMcpSecretDomainPath = homeopsMcp.secretDomain;
+        homeopsMcpSecretDomain2Path = homeopsMcp.secretDomain2;
+        homeopsMcpMeminiApiKeyPath = homeopsMcp.meminiApiKey;
         opnixTokenFile = "${config.xdg.configHome}/opnix/token";
-        opnixPackage = inputs.opnix.packages.${pkgs.stdenv.hostPlatform.system}.default;
+        opnixPackage = inputs'.opnix.packages.default;
         homeopsMcpOpnixConfig = pkgs.writeText "homeops-mcp-opnix-secrets.json" (
           builtins.toJSON {
-            secrets = [
-              {
-                path = ".config/homeops-mcp/secret-domain";
-                reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN";
-                owner = config.home.username;
-                group = "aaron";
-                mode = "0600";
-              }
-              {
-                path = ".config/homeops-mcp/secret-domain-2";
-                reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN_2";
-                owner = config.home.username;
-                group = "aaron";
-                mode = "0600";
-              }
-              {
-                path = ".config/homeops-mcp/memini-api-key";
-                reference = "op://kubernetes/memini/MEMINI_API_KEY";
-                owner = config.home.username;
-                group = "aaron";
-                mode = "0600";
-              }
-            ];
+            secrets = lib.mapAttrsToList (name: secret: {
+              path = if secret.path != null then secret.path else name;
+              inherit (secret)
+                reference
+                owner
+                group
+                mode
+                ;
+            }) config.programs.onepassword-secrets.secrets;
           }
         );
       in
@@ -58,19 +50,19 @@
           secrets = {
             secretDomain = {
               reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN";
-              path = ".config/homeops-mcp/secret-domain";
+              path = homeopsMcp.secretDomain;
               group = "aaron";
               mode = "0600";
             };
             secretDomain2 = {
               reference = "op://kubernetes/cluster_secrets/SECRET_DOMAIN_2";
-              path = ".config/homeops-mcp/secret-domain-2";
+              path = homeopsMcp.secretDomain2;
               group = "aaron";
               mode = "0600";
             };
             meminiApiKey = {
               reference = "op://kubernetes/memini/MEMINI_API_KEY";
-              path = ".config/homeops-mcp/memini-api-key";
+              path = homeopsMcp.meminiApiKey;
               group = "aaron";
               mode = "0600";
             };

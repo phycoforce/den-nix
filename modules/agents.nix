@@ -1,5 +1,14 @@
-{ den, inputs, ... }:
+{ den, ... }:
 {
+  flake-file.inputs = {
+    nixpkgs-codex.url = "github:NixOS/nixpkgs/master";
+
+    codex-desktop-linux = {
+      url = "github:ilysenko/codex-desktop-linux";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
   den.aspects.agents = {
     includes = [
       den.aspects.foundation
@@ -11,15 +20,16 @@
     homeManager =
       {
         config,
+        inputs',
         lib,
         pkgs,
         ...
       }:
       let
-        homeopsMcpConfigDir = "${config.xdg.configHome}/homeops-mcp";
-        homeopsMcpSecretDomainPath = "${homeopsMcpConfigDir}/secret-domain";
-        homeopsMcpSecretDomain2Path = "${homeopsMcpConfigDir}/secret-domain-2";
-        homeopsMcpMeminiApiKeyPath = "${homeopsMcpConfigDir}/memini-api-key";
+        homeopsMcp = import ./_home/homeops-mcp-paths.nix config;
+        homeopsMcpSecretDomainPath = homeopsMcp.secretDomain;
+        homeopsMcpSecretDomain2Path = homeopsMcp.secretDomain2;
+        homeopsMcpMeminiApiKeyPath = homeopsMcp.meminiApiKey;
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
         # nixpkgs playwright-mcp defaults to downloading "chrome-for-testing" into its
         # read-only PLAYWRIGHT_BROWSERS_PATH (a /nix/store path), which fails. Pin it to the
@@ -40,7 +50,7 @@
         '';
         playwrightMcpCommand = lib.getExe playwrightMcpWrapped;
         codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
-        codexPackage = inputs.nixpkgs-codex.legacyPackages.${pkgs.stdenv.hostPlatform.system}.codex;
+        codexPackage = inputs'.nixpkgs-codex.legacyPackages.codex;
         claudeMeminiCodexMarketplaceDir = "${config.xdg.configHome}/codex-plugin-marketplaces/claude-memini";
         claudeMeminiCodexMarketplaceJson = pkgs.writeText "claude-memini-marketplace.json" (
           builtins.toJSON {
@@ -109,7 +119,7 @@
         '';
         sourceHomeopsMcpEnv = ". ${homeopsMcpEnvLoader}";
         codexDesktopRemoteMobileControl =
-          inputs.codex-desktop-linux.packages.${pkgs.stdenv.hostPlatform.system}.codex-desktop-remote-mobile-control;
+          inputs'.codex-desktop-linux.packages.codex-desktop-remote-mobile-control;
         codexDesktopRemoteMobileControlWrapped = pkgs.symlinkJoin {
           name = "codex-desktop-remote-mobile-control";
           paths = [ codexDesktopRemoteMobileControl ];
@@ -119,8 +129,8 @@
           ];
           postBuild = ''
             wrapProgram "$out/bin/codex-desktop" \
-              --set XCURSOR_THEME Bibata-Modern-Classic \
-              --set XCURSOR_SIZE 32 \
+              --set XCURSOR_THEME capitaine-cursors \
+              --set XCURSOR_SIZE 24 \
               --prefix PATH : ${lib.escapeShellArg codexHookPath} \
               --run ${lib.escapeShellArg sourceHomeopsMcpEnv}
 

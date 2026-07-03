@@ -26,16 +26,29 @@ Manager, and declarative disk provisioning through disko.
 
 ```text
 flake.nix
+justfile               # local dev recipes (just validate, fmt, switch, ...)
 modules/
-  dendritic.nix        # Den, flake-file, and input declarations
+  dendritic.nix        # Den, flake-file, and core input declarations
   defaults.nix         # global Den defaults
   hosts.nix            # host/user declaration
   nh.nix               # Den nh package exposure
+  tests.nix            # eval-time aspect wiring checks
   temperantia.nix      # host aspect
   aaron.nix            # aaron and aaron-linux user aspects
+  desktop.nix          # Niri + Noctalia desktop aspect
+  foundation.nix       # base aspect shared by other aspects
+  agents.nix           # AI agent tooling aspect (Claude Code, Codex, MCP, ...)
+  development.nix      # development tooling aspect
+  gaming.nix           # gaming aspect (Steam, Flatpak, ...)
+  media.nix            # media apps aspect (Plex, Spotify, ...)
+  communication.nix    # communication apps aspect
   _nixos/              # regular NixOS modules, ignored by import-tree
   _home/               # regular Home Manager modules, ignored by import-tree
 ```
+
+Concern-specific flake inputs are declared via `flake-file.inputs` in the
+aspect module that consumes them; `modules/dendritic.nix` keeps only the core
+framework inputs and the flake metadata.
 
 The underscore directories follow Den's documented migration pattern:
 `import-tree` ignores them, and host/user aspects import them explicitly.
@@ -49,6 +62,9 @@ distrobox enter nix -- nix --extra-experimental-features "nix-command flakes" fl
 distrobox enter nix -- nix --extra-experimental-features "nix-command flakes" run .#write-flake
 distrobox enter nix -- nix --extra-experimental-features "nix-command flakes" build .#nixosConfigurations.temperantia.config.system.build.toplevel --dry-run --accept-flake-config
 ```
+
+Or run all of them locally with `just validate`, which also checks formatting
+and that the generated `flake.nix` is up to date.
 
 After running `write-flake`, review any generated `flake.nix` changes before
 committing.

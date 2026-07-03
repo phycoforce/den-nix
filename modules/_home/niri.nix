@@ -6,7 +6,7 @@
 }:
 let
   noctaliaIpc = "noctalia-shell ipc call";
-  starshipConfigPath = "${config.xdg.configHome}/noctalia/starship.toml";
+  starshipConfigPath = import ./starship-config-path.nix config;
   niriNoctaliaConfig = pkgs.writeText "niri-noctalia.kdl" ''
     layout {
         focus-ring {
@@ -60,7 +60,6 @@ in
 
     "niri/cfg/autostart.kdl".text = ''
       spawn-at-startup "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
-      spawn-at-startup "xwayland-satellite"
       spawn-at-startup "noctalia-shell"
     '';
 
@@ -228,8 +227,8 @@ in
           QT_QPA_PLATFORMTHEME "gtk3"
           QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
           STARSHIP_CONFIG "${starshipConfigPath}"
-          XCURSOR_SIZE "32"
-          XCURSOR_THEME "Bibata-Modern-Classic"
+          XCURSOR_SIZE "24"
+          XCURSOR_THEME "capitaine-cursors"
           XDG_CURRENT_DESKTOP "niri:GNOME"
           XDG_SESSION_DESKTOP "niri"
           XDG_SESSION_TYPE "wayland"

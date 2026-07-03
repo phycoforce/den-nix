@@ -5,7 +5,7 @@
   ...
 }:
 let
-  starshipConfigPath = "${config.xdg.configHome}/noctalia/starship.toml";
+  starshipConfigPath = import ./starship-config-path.nix config;
   starshipSettings = {
     add_newline = true;
     command_timeout = 200;

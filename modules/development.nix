@@ -9,6 +9,8 @@
       ])
     ];
 
+    user.extraGroups = [ "podman" ];
+
     provides.to-hosts.nixos = {
       virtualisation.podman = {
         enable = true;
