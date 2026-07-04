@@ -120,11 +120,9 @@ jobs:
         uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Nix store cache
-        uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
-        with:
-          diagnostic-endpoint: ""
-          use-flakehub: false
+      # No magic-nix-cache here: the closure is multi-GB, GitHub's Actions cache
+      # is 10GB-capped, and the reverse-engineered cache client rate-limits on a
+      # build this size. The real substituters serve the paths.
       - name: Build host toplevel (real build)
         run: nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --accept-flake-config --print-build-logs --no-link
 

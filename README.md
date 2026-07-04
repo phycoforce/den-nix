@@ -214,7 +214,7 @@ resolved values to:
 ~/.config/homeops-mcp/memini-api-key
 ```
 
-Claude Code, Codex, Codex Desktop, and OpenCode are installed through thin launchers that
+Claude Code, Codex, and OpenCode are installed through thin launchers that
 source a shared HomeOps MCP environment loader at process start. This keeps the
 secrets out of the Nix store and out of the broad user session environment while
 still making the MCPs work from terminal and desktop launches. A devshell or
@@ -277,7 +277,7 @@ command -v claude
 command -v node
 command -v opencode-memini-update
 
-for app in claude codex opencode codex-desktop; do
+for app in claude codex opencode; do
   wrapper="$(readlink -f "$(command -v "$app")")"
   loader="$(grep -ho '/nix/store/[^ "]*homeops-mcp-env' "$wrapper" | head -n1)"
   printf '%s -> %s\n' "$app" "$loader"

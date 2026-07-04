@@ -2,11 +2,6 @@
 {
   flake-file.inputs = {
     nixpkgs-codex.url = "github:NixOS/nixpkgs/master";
-
-    codex-desktop-linux = {
-      url = "github:ilysenko/codex-desktop-linux";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   den.aspects.agents = {
@@ -118,33 +113,6 @@
           fi
         '';
         sourceHomeopsMcpEnv = ". ${homeopsMcpEnvLoader}";
-        codexDesktopRemoteMobileControl =
-          inputs'.codex-desktop-linux.packages.codex-desktop-remote-mobile-control;
-        codexDesktopRemoteMobileControlWrapped = pkgs.symlinkJoin {
-          name = "codex-desktop-remote-mobile-control";
-          paths = [ codexDesktopRemoteMobileControl ];
-          buildInputs = [
-            pkgs.makeWrapper
-            pkgs.gnused
-          ];
-          postBuild = ''
-            wrapProgram "$out/bin/codex-desktop" \
-              --set XCURSOR_THEME capitaine-cursors \
-              --set XCURSOR_SIZE 24 \
-              --prefix PATH : ${lib.escapeShellArg codexHookPath} \
-              --run ${lib.escapeShellArg sourceHomeopsMcpEnv}
-
-            desktopFile="$out/share/applications/codex-desktop.desktop"
-            if [ -f "$desktopFile" ]; then
-              rm "$desktopFile"
-              install -Dm0644 \
-                "${codexDesktopRemoteMobileControl}/share/applications/codex-desktop.desktop" \
-                "$desktopFile"
-              substituteInPlace "$desktopFile" \
-                --replace-fail "${codexDesktopRemoteMobileControl}/bin/codex-desktop" "$out/bin/codex-desktop"
-            fi
-          '';
-        };
         codexWrapped = pkgs.writeShellScriptBin "codex" ''
           ${sourceHomeopsMcpEnv}
           export PATH=${lib.escapeShellArg codexHookPath}:$PATH
@@ -391,7 +359,6 @@
         home.packages = with pkgs; [
           claudeCodeWrapped
           codexWrapped
-          codexDesktopRemoteMobileControlWrapped
           opencodeMeminiUpdate
           opencodeWrapped
           mcp-nixos
