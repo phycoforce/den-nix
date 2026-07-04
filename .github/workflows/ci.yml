@@ -128,6 +128,16 @@ jobs:
           extra_nix_config: |
             http-connections = 50
             max-substitution-jobs = 32
+      # Push the built delta to our Cachix cache so the desktop / reinstalls pull
+      # it prebuilt. cachix-action uses an internal post-build-hook, so only paths
+      # BUILT here (not the nixpkgs paths it fetches) are pushed -> stays under the
+      # 5GB free tier. Push only on trusted main builds; PRs/Dependabot skip it.
+      - name: Cachix
+        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        with:
+          name: phycoforce
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: ${{ github.ref != 'refs/heads/main' }}
       # No magic-nix-cache here: the closure is multi-GB, GitHub's Actions cache
       # is 10GB-capped, and the reverse-engineered cache client rate-limits on a
       # build this size. The real substituters serve the paths.
