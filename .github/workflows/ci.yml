@@ -84,7 +84,10 @@ jobs:
           use-flakehub: false
       - name: Flake check
         run: nix flake check --accept-flake-config
-      - name: Dry-run host build (cheap gate on every PR)
+      # Cheap eval-only gate for ordinary PRs. On push / Dependabot / dispatch the
+      # real `build` job runs and subsumes this, so skip it there.
+      - name: Dry-run host build
+        if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'dependabot/')
         run: nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --dry-run --accept-flake-config
 
   build:
@@ -120,6 +123,11 @@ jobs:
         uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          # This build is ~95% substituter fetch (multi-GB closure), not compile,
+          # so raise download concurrency to shorten the network-bound wall time.
+          extra_nix_config: |
+            http-connections = 50
+            max-substitution-jobs = 32
       # No magic-nix-cache here: the closure is multi-GB, GitHub's Actions cache
       # is 10GB-capped, and the reverse-engineered cache client rate-limits on a
       # build this size. The real substituters serve the paths.
