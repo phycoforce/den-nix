@@ -13,7 +13,9 @@ updates:
     commit-message:
       prefix: "chore"
 
-  # Keep the pinned GitHub Actions in .github/workflows/ci.yml current.
+  # Keep the SHA-pinned GitHub Actions in .github/workflows/ current. Dependabot
+  # bumps both the SHA and the trailing `# vN` comment. A cooldown delays brand-
+  # new tags so a compromised/rushed release has time to be caught first.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -23,3 +25,5 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "chore"
+    cooldown:
+      default-days: 7

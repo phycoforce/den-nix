@@ -1,0 +1,7 @@
+# Config for the `typos` spell-checker (run via git-hooks in CI and locally).
+[files]
+# flake.lock is generated JSON full of base32 narHashes -> pure noise for typos.
+extend-exclude = ["flake.lock"]
+
+[default.extend-words]
+# Add project-specific tokens here only if typos ever misflags a real word.

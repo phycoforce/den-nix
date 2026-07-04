@@ -1,0 +1,5 @@
+# statix config (used by the git-hooks statix lint).
+# repeated_keys flags split attribute assignments like
+#   programs.git = ...; programs.ssh = ...;
+# which is idiomatic, readable NixOS-module style here, not a defect.
+disabled = ["repeated_keys"]

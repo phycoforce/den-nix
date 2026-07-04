@@ -8,40 +8,138 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded runs on PR branches, but let main runs finish (they warm
+  # caches / produce the authoritative build).
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
 
 jobs:
-  nix:
-    name: Nix
+  lint:
+    name: lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
-
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cache Nix store paths
-        uses: DeterminateSystems/magic-nix-cache-action@v14
+      - name: Nix store cache
+        uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
         with:
           diagnostic-endpoint: ""
           use-flakehub: false
-
       - name: Check formatting
-        run: nix --accept-flake-config fmt -- --check $(git ls-files '*.nix')
+        run: git ls-files -z '*.nix' | xargs -0 nix --accept-flake-config fmt -- --check
+      - name: Lint (statix, deadnix, actionlint, editorconfig, typos, zizmor)
+        run: nix build .#checks.x86_64-linux.pre-commit -L --accept-flake-config
 
-      - name: Check generated flake
-        run: |
-          nix --accept-flake-config run .#write-flake
-          git diff --exit-code flake.nix
+  generated:
+    name: generated
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Regenerate flake.nix
+        run: nix --accept-flake-config run .#write-flake
+      - name: Check generated flake.nix is in sync
+        run: git diff --exit-code flake.nix
 
-      - name: Check flake
+  eval:
+    name: eval
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Flake.lock health
+        uses: DeterminateSystems/flake-checker-action@3164002371bc90729c68af0e24d5aacf20d7c9f6 # v12
+        with:
+          fail-mode: true
+      - name: Nix store cache
+        uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+        with:
+          diagnostic-endpoint: ""
+          use-flakehub: false
+      - name: Flake check
         run: nix flake check --accept-flake-config
-
-      - name: Check host build
+      - name: Dry-run host build (cheap gate on every PR)
         run: nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --dry-run --accept-flake-config
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Real build only where a cache miss / breakage can appear: pushes to main,
+    # manual runs, and Dependabot lock/action bumps. Ordinary PRs keep the fast
+    # dry-run gate in the eval job.
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/'))
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          # Keep swap (OOM insurance for a cold from-source kernel link) and the
+          # tool cache; reclaim the big SDK/runtime directories.
+          tool-cache: false
+          swap-storage: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Nix store cache
+        uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+        with:
+          diagnostic-endpoint: ""
+          use-flakehub: false
+      - name: Build host toplevel (real build)
+        run: nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --accept-flake-config --print-build-logs --no-link
+
+  # Single stable status check for branch protection. `build` is intentionally
+  # skipped on ordinary PRs, so require THIS job (not `build`) as the gate.
+  CI:
+    name: CI
+    needs: [lint, generated, eval, build]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - name: Success
+        run: echo "All required checks passed."

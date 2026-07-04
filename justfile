@@ -8,10 +8,10 @@ default:
     @just --list
 
 fmt:
-    nix {{nix_flags}} fmt -- $(git ls-files '*.nix')
+    git ls-files -z '*.nix' | xargs -0 nix {{nix_flags}} fmt --
 
 fmt-check:
-    nix {{nix_flags}} fmt -- --check $(git ls-files '*.nix')
+    git ls-files -z '*.nix' | xargs -0 nix {{nix_flags}} fmt -- --check
 
 write-flake:
     nix {{nix_flags}} run .#write-flake
@@ -32,10 +32,16 @@ check-generated:
 flake-check:
     nix flake check {{nix_flags}}
 
+lint:
+    nix build .#checks.x86_64-linux.pre-commit -L {{nix_flags}}
+
 build-dry:
     nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel --dry-run {{nix_flags}}
 
-validate: fmt-check check-generated flake-check build-dry
+build:
+    nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel {{nix_flags}}
+
+validate: fmt-check lint check-generated flake-check build-dry
 
 switch:
     nix {{nix_flags}} run .#{{host}} -- switch

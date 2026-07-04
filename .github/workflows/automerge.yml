@@ -1,0 +1,32 @@
+name: Dependabot auto-merge
+
+# Enables GitHub native auto-merge on Dependabot's grouped lock/action PRs.
+# The merge only completes once the required `CI` status check passes, so a
+# lock bump that breaks the real build never lands. Requires, one time:
+#   - Repo Settings > General > Pull Requests > "Allow auto-merge" enabled.
+#   - A ruleset/branch protection on `main` requiring the `CI` check
+#     (0 required approvals so the bot PR can merge without a human).
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    name: automerge
+    runs-on: ubuntu-latest
+    # Gate on the PR author (immutable in the event payload), not github.actor
+    # (the re-triggerable, spoofable actor context).
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
+      - name: Enable auto-merge for grouped dependency PRs
+        if: contains(fromJSON('["flake-inputs", "actions"]'), steps.meta.outputs.dependency-group)
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
