@@ -28,10 +28,16 @@
       }:
       let
         krewRoot = "${config.home.homeDirectory}/.krew";
+        # Extra krew indexes to register (index name -> git URL). Plugins from a
+        # non-default index are referenced in krewPlugins as "<index>/<name>".
+        krewIndexes = {
+          kopiur = "https://github.com/home-operations/kopiur.git";
+        };
         krewPlugins = [
           "browse-pvc"
           "cert-manager"
           "cnpg"
+          "kopiur/kopiur"
           "node-shell"
           "rook-ceph"
           "view-secret"
@@ -50,6 +56,14 @@
 
           ${pkgs.coreutils}/bin/mkdir -p "$KREW_ROOT"
 
+          existingIndexes="$(${pkgs.krew}/bin/krew index list 2>/dev/null || true)"
+          ${lib.concatStrings (
+            lib.mapAttrsToList (name: url: ''
+              if ! printf '%s\n' "$existingIndexes" | ${pkgs.gnugrep}/bin/grep -q '^${name}[[:space:]]'; then
+                ${pkgs.krew}/bin/krew index add ${lib.escapeShellArg name} ${lib.escapeShellArg url}
+              fi
+            '') krewIndexes
+          )}
           installed="$(${pkgs.krew}/bin/krew list 2>/dev/null || true)"
           missing=()
           for plugin in ${lib.escapeShellArgs krewPlugins}; do
