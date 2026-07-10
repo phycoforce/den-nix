@@ -148,7 +148,7 @@
           talosctl
           viddy
           winbox
-          yq
+          yq-go
         ];
       };
   };
