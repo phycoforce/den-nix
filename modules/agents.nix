@@ -302,6 +302,31 @@
           fi
         '';
 
+        # Claude Code writes runtime state (theme, model, /config toggles) back into
+        # ~/.claude/settings.json, so it cannot be a read-only Nix-store symlink. Merge
+        # only the keys we want to own with jq and leave the rest mutable. Empty
+        # attribution strings drop the "Co-Authored-By: Claude" commit trailer and the
+        # "Generated with Claude Code" PR line (the non-deprecated successor to
+        # includeCoAuthoredBy).
+        home.activation.claudeCodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          if [ -n "''${DRY_RUN_CMD:-}" ]; then
+            echo "Skipping Claude Code settings.json attribution merge during dry run"
+          else
+            settings="$HOME/.claude/settings.json"
+            ${pkgs.coreutils}/bin/mkdir -p "$(${pkgs.coreutils}/bin/dirname "$settings")"
+            if [ ! -s "$settings" ]; then
+              echo '{}' > "$settings"
+            fi
+            tmp="$settings.tmp"
+            if ${pkgs.jq}/bin/jq '.attribution = { commit: "", pr: "" }' "$settings" > "$tmp"; then
+              ${pkgs.coreutils}/bin/mv "$tmp" "$settings"
+            else
+              echo "WARNING: could not update $settings (invalid JSON?); leaving it unchanged" >&2
+              ${pkgs.coreutils}/bin/rm -f "$tmp"
+            fi
+          fi
+        '';
+
         xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
           mcp = {
