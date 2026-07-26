@@ -301,11 +301,11 @@
     },
     "nixpkgs-codex": {
       "locked": {
-        "lastModified": 1784926550,
-        "narHash": "sha256-EHTSiJEIHOy+PuVvkEyD6dfqv5uH19dt0RC4hwZFQkQ=",
+        "lastModified": 1785026001,
+        "narHash": "sha256-ChCMxiwuOuMrm4HuhaMH7CwOq4UCj6FqgNr/Id3y2f0=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "6c8710c4022a64a0aefea6988e8b1e3fbd88ad60",
+        "rev": "41e85e442ad1ef3001b03e099f4cc4836df284fc",
         "type": "github"
       },
       "original": {
