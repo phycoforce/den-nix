@@ -37,7 +37,7 @@ modules/
   aaron.nix            # aaron and aaron-linux user aspects
   desktop.nix          # Niri + Noctalia desktop aspect
   foundation.nix       # base aspect shared by other aspects
-  agents.nix           # AI agent tooling aspect (Claude Code, Codex, MCP, ...)
+  agents.nix           # AI agent tooling aspect (agent CLIs, MCP registry, plugins)
   development.nix      # development tooling aspect
   gaming.nix           # gaming aspect (Steam, Flatpak, ...)
   media.nix            # media apps aspect (Plex, Spotify, ...)
@@ -181,9 +181,9 @@ already selected. A Steam gamescope session is also available.
 
 ### 1Password / OpNix Bootstrap
 
-This desktop uses OpNix to pull local MCP client secrets from 1Password for
-Codex and OpenCode. Create a dedicated 1Password service account for the
-desktop, for example `temperantia-opnix`, with read-only access to these fields:
+This desktop uses OpNix to pull local MCP client secrets from 1Password for the
+agent CLIs. Create a dedicated 1Password service account for the desktop, for
+example `temperantia-opnix`, with read-only access to these fields:
 
 ```text
 op://kubernetes/cluster_secrets/SECRET_DOMAIN
@@ -214,12 +214,21 @@ resolved values to:
 ~/.config/homeops-mcp/memini-api-key
 ```
 
-Claude Code, Codex, and OpenCode are installed through thin launchers that
-source a shared HomeOps MCP environment loader at process start. This keeps the
-secrets out of the Nix store and out of the broad user session environment while
-still making the MCPs work from terminal and desktop launches. A devshell or
-devenv can be added later for repo-scoped workflows, but it does not replace the
-desktop launch path.
+Claude Code and OpenCode are installed through thin launchers that source a
+shared agent MCP environment loader (`agent-mcp-env`) at process start. This
+keeps the secrets out of the Nix store and out of the broad user session
+environment while still making the MCPs work from terminal and desktop
+launches. A devshell or devenv can be added later for repo-scoped workflows,
+but it does not replace the desktop launch path.
+
+MCP servers and agent plugins are declared once, agent-agnostically, in the
+`mcpServers` and `agentPlugins` registries in `modules/agents.nix`. Each agent
+front-end has a small adapter that renders those registries into whatever that
+agent wants: Claude Code gets `claude mcp add --scope user` activation steps,
+OpenCode gets a generated `~/.config/opencode/opencode.json`. Adding a server
+or another agent front-end means one edit in one place. Entries can opt out of
+a front-end with `agents = [ ... ]`; Memini does exactly that, because Claude
+Code gets it from the plugin instead.
 
 If 1Password is temporarily unreachable during a rebuild, Home Manager keeps
 using the existing HomeOps MCP secret files when both generated files are
@@ -256,18 +265,13 @@ stat -c '%U:%G %a %n' \
 test -s ~/.config/homeops-mcp/secret-domain
 test -s ~/.config/homeops-mcp/memini-api-key
 
-codex mcp list | grep -E 'homeops_toolhive|memini|nixos'
-codex mcp get homeops_toolhive
-codex mcp get memini
-codex mcp get nixos
 claude plugin list --json | jq '.[] | select(.id == "memini@memini")'
-claude mcp list | grep -E 'homeops_toolhive|plugin:memini:memini|nixos'
+claude mcp list | grep -E 'homeops_toolhive|konflate|plugin:memini:memini|nixos|playwright'
 claude mcp get homeops_toolhive
 claude mcp get nixos
-codex plugin list | grep 'memini@claude-memini'
-jq 'keys' ~/.config/codex-plugin-marketplaces/claude-memini/plugins/memini/hooks/hooks.json
 
 opencode mcp list | grep -E 'homeops_toolhive|memini|nixos'
+jq '.mcp | keys' ~/.config/opencode/opencode.json
 jq '.plugin, .mcp.homeops_toolhive, .mcp.memini, .mcp.homeops_memini, .mcp.nixos' ~/.config/opencode/opencode.json
 test -s ~/.config/opencode/plugins/memini.js
 jq '.dependencies["@eleboucher/opencode-memini"]' ~/.config/opencode/package.json
@@ -277,9 +281,9 @@ command -v claude
 command -v node
 command -v opencode-memini-update
 
-for app in claude codex opencode; do
+for app in claude opencode; do
   wrapper="$(readlink -f "$(command -v "$app")")"
-  loader="$(grep -ho '/nix/store/[^ "]*homeops-mcp-env' "$wrapper" | head -n1)"
+  loader="$(grep -ho '/nix/store/[^ "]*agent-mcp-env' "$wrapper" | head -n1)"
   printf '%s -> %s\n' "$app" "$loader"
   test -n "$loader"
   grep -H 'HOMEOPS_SECRET_DOMAIN\|MEMINI_API_KEY' "$loader"
@@ -288,20 +292,24 @@ done
 
 The expected ownership mode for the token and generated secret files is
 `aaron:aaron 600`. Claude Code should show `memini@memini` plus
-`homeops_toolhive`, `plugin:memini:memini`, and `nixos` MCP entries. Codex should
-show `memini@claude-memini` plus a concrete `memini` MCP URL using
-`MEMINI_TOKEN` as its bearer-token environment variable. Codex mounts a local
-copy of the Claude plugin for hooks, with top-level JSON comment keys stripped
-for Codex's stricter hook parser, while the MCP server remains declared
-separately with the concrete remote URL. There should be no separate
-`homeops_memini` MCP entry. OpenCode should show a `memini` MCP entry, no direct
-npm package in its `plugin` array, a local `plugins/memini.js` shim, and `null`
-for `.mcp.homeops_memini`. The token value itself should not appear in Codex or
-OpenCode config. The shim loads the Memini npm dependency declared in
+`homeops_toolhive`, `konflate`, `plugin:memini:memini`, `nixos`, and
+`playwright` MCP entries. There should be no separate `homeops_memini` MCP
+entry, and no `memini` entry either: Claude Code gets Memini from the plugin,
+so the registry marks that server `agents = [ "opencode" ]`. OpenCode should
+show the same servers plus its own `memini` entry, no direct npm package in its
+`plugin` array, a local `plugins/memini.js` shim, and `null` for
+`.mcp.homeops_memini`. The token value itself should not appear in any agent
+config; OpenCode holds `{env:MEMINI_TOKEN}` and resolves it from the loader at
+launch. The shim loads the Memini npm dependency declared in
 `~/.config/opencode/package.json`; run `opencode-memini-update` when you want to
 explicitly install or refresh it from `latest`. Normal OpenCode launches avoid
 extra wrapper-managed dependency work,
 and `opencode auth` skips plugins through `--pure`.
+
+Every Claude Code activation step is gated on `api.anthropic.com` resolving.
+When the machine activates Home Manager before the network is up, the steps
+no-op instead of launching the CLI offline, which would fail its OAuth token
+refresh and silently drop the session to API billing.
 
 Home Manager installs Memini through Claude Code's plugin CLI when missing. The
 equivalent interactive Claude Code commands are:

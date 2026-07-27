@@ -299,7 +299,7 @@
         "type": "github"
       }
     },
-    "nixpkgs-codex": {
+    "nixpkgs-agents": {
       "locked": {
         "lastModified": 1785101871,
         "narHash": "sha256-WlxYeV/qHkP9AUJK3krfyEtBodejh5uZ11ZK/gKjZy0=",
@@ -459,7 +459,7 @@
         "nix-cachyos-kernel": "nix-cachyos-kernel",
         "nix-flatpak": "nix-flatpak",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-codex": "nixpkgs-codex",
+        "nixpkgs-agents": "nixpkgs-agents",
         "noctalia": "noctalia",
         "opnix": "opnix",
         "qylock": "qylock"

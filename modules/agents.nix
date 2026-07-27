@@ -1,7 +1,9 @@
 { den, inputs, ... }:
 {
   flake-file.inputs = {
-    nixpkgs-codex.url = "github:NixOS/nixpkgs/master";
+    # Bleeding-edge nixpkgs used only for agent CLIs that release faster than
+    # nixos-unstable can carry them. Bump with: nix flake update nixpkgs-agents
+    nixpkgs-agents.url = "github:NixOS/nixpkgs/master";
   };
 
   den.aspects.agents = {
@@ -19,7 +21,7 @@
       # (/etc/claude-code/managed-settings.json on Linux), not
       # ~/.claude/settings.json. "claudeai" = subscription; "console" = API.
       # The real fix for the daily re-login is the offline activation guard
-      # (anthropicOnline) below; this is defense-in-depth.
+      # (agentOnline) below; this is defense-in-depth.
       environment.etc."claude-code/managed-settings.json".text = builtins.toJSON {
         forceLoginMethod = "claudeai";
       };
@@ -28,7 +30,6 @@
     homeManager =
       {
         config,
-        inputs',
         lib,
         pkgs,
         ...
@@ -38,69 +39,36 @@
         homeopsMcpSecretDomainPath = homeopsMcp.secretDomain;
         homeopsMcpSecretDomain2Path = homeopsMcp.secretDomain2;
         homeopsMcpMeminiApiKeyPath = homeopsMcp.meminiApiKey;
-        mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
-        # nixpkgs playwright-mcp defaults to downloading "chrome-for-testing" into its
-        # read-only PLAYWRIGHT_BROWSERS_PATH (a /nix/store path), which fails. Pin it to the
-        # version-matched Chromium that ships in pkgs.playwright-driver.browsers via
-        # --executable-path so it never tries to provision a browser at runtime. Scratch
-        # output goes to the XDG cache, never the project directory.
-        playwrightMcpWrapped = pkgs.writeShellScriptBin "playwright-mcp-nix" ''
-          set -eu
-          browsers='${pkgs.playwright-driver.browsers}'
-          chrome=$(set -- "$browsers"/chromium-*/chrome-linux*/chrome; printf '%s' "$1")
-          exec ${lib.getExe pkgs.playwright-mcp} \
-            --browser chrome \
-            --executable-path "$chrome" \
-            --headless \
-            --isolated \
-            --output-dir "''${XDG_CACHE_HOME:-$HOME/.cache}/playwright-mcp" \
-            "$@"
-        '';
-        playwrightMcpCommand = lib.getExe playwrightMcpWrapped;
-        codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
-        codexPackage = inputs'.nixpkgs-codex.legacyPackages.codex;
-        # claude-code from the master-tracking nixpkgs-codex input so the CLI
+
+        # ------------------------------------------------------------------
+        # Agent packages
+        # ------------------------------------------------------------------
+
+        # claude-code from the master-tracking nixpkgs-agents input so the CLI
         # tracks the latest release (Opus 5 needs >= 2.1.219) independently of
         # the main nixos-unstable pin, which is held back by other packages
         # (e.g. niri vs libdisplay-info). legacyPackages carries the default
         # nixpkgs config (allowUnfree = false) and den.batteries.unfree only
         # configures the OS/HM pkgs set, so re-instantiate this input with an
-        # allowlist predicate for claude-code. Bump it with:
-        #   nix flake update nixpkgs-codex
+        # allowlist predicate for claude-code.
         claudeCode =
-          (import inputs.nixpkgs-codex {
+          (import inputs.nixpkgs-agents {
             inherit (pkgs.stdenv.hostPlatform) system;
             config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "claude-code" ];
           }).claude-code;
-        # DNS resolution check for Anthropic's API. Boot-time home-manager
-        # activation runs before network-online.target; launching the claude
-        # CLI while DNS is down makes its short-lived (~7h) OAuth token refresh
-        # fail, which silently drops the session to API billing and forces a
-        # daily re-login. Gate every claude/codex-invoking activation step on
-        # this so they no-op when offline instead of clobbering ~/.claude.json.
-        anthropicOnline = "${pkgs.getent}/bin/getent hosts api.anthropic.com >/dev/null 2>&1";
-        claudeMeminiCodexMarketplaceDir = "${config.xdg.configHome}/codex-plugin-marketplaces/claude-memini";
-        claudeMeminiCodexMarketplaceJson = pkgs.writeText "claude-memini-marketplace.json" (
-          builtins.toJSON {
-            name = "claude-memini";
-            interface.displayName = "Claude Code Memini";
-            plugins = [
-              {
-                name = "memini";
-                source = {
-                  source = "local";
-                  path = "./plugins/memini";
-                };
-                policy = {
-                  installation = "AVAILABLE";
-                  authentication = "ON_INSTALL";
-                };
-                category = "Developer Tools";
-              }
-            ];
-          }
-        );
-        homeopsMcpEnvLoader = pkgs.writeText "homeops-mcp-env" ''
+        claudeBin = "${claudeCode}/bin/claude";
+        opencodeBin = "${pkgs.opencode}/bin/opencode";
+
+        # ------------------------------------------------------------------
+        # Shared agent environment
+        #
+        # Every agent CLI launches through a thin wrapper that sources this
+        # loader, so MCP secrets stay out of the Nix store and out of the
+        # broad user session environment while still working from terminal
+        # and desktop launches. Activation steps source it too, so the values
+        # a wrapper sees and the values baked into agent config agree.
+        # ------------------------------------------------------------------
+        agentEnvLoader = pkgs.writeText "agent-mcp-env" ''
           if [ -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
             export HOMEOPS_SECRET_DOMAIN="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
           fi
@@ -145,26 +113,160 @@
             export MEMINI_NAMESPACE="$memini_project"
           fi
         '';
-        sourceHomeopsMcpEnv = ". ${homeopsMcpEnvLoader}";
-        codexWrapped = pkgs.writeShellScriptBin "codex" ''
-          ${sourceHomeopsMcpEnv}
-          export PATH=${lib.escapeShellArg codexHookPath}:$PATH
-          exec ${codexPackage}/bin/codex "$@"
+        sourceAgentEnv = ". ${agentEnvLoader}";
+
+        # Node on PATH for agent plugin/hook runtimes that shell out to it.
+        agentRuntimePath = lib.makeBinPath [ pkgs.nodejs_22 ];
+
+        # DNS resolution check, used to gate activation steps that launch an
+        # agent CLI. Boot-time home-manager activation runs before
+        # network-online.target; launching the claude CLI while DNS is down
+        # makes its short-lived (~7h) OAuth token refresh fail, which silently
+        # drops the session to API billing and forces a daily re-login. Gating
+        # on this makes those steps no-op when offline instead of clobbering
+        # ~/.claude.json.
+        agentOnline = host: "${pkgs.getent}/bin/getent hosts ${host} >/dev/null 2>&1";
+
+        # ------------------------------------------------------------------
+        # Local MCP server commands
+        # ------------------------------------------------------------------
+        mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
+        # nixpkgs playwright-mcp defaults to downloading "chrome-for-testing" into its
+        # read-only PLAYWRIGHT_BROWSERS_PATH (a /nix/store path), which fails. Pin it to the
+        # version-matched Chromium that ships in pkgs.playwright-driver.browsers via
+        # --executable-path so it never tries to provision a browser at runtime. Scratch
+        # output goes to the XDG cache, never the project directory.
+        playwrightMcpWrapped = pkgs.writeShellScriptBin "playwright-mcp-nix" ''
+          set -eu
+          browsers='${pkgs.playwright-driver.browsers}'
+          chrome=$(set -- "$browsers"/chromium-*/chrome-linux*/chrome; printf '%s' "$1")
+          exec ${lib.getExe pkgs.playwright-mcp} \
+            --browser chrome \
+            --executable-path "$chrome" \
+            --headless \
+            --isolated \
+            --output-dir "''${XDG_CACHE_HOME:-$HOME/.cache}/playwright-mcp" \
+            "$@"
         '';
-        claudeCodeWrapped = pkgs.writeShellScriptBin "claude" ''
-          ${sourceHomeopsMcpEnv}
-          export PATH=${lib.escapeShellArg codexHookPath}:$PATH
-          export FORCE_AUTOUPDATE_PLUGINS=1
-          exec ${claudeCode}/bin/claude "$@"
-        '';
-        opencodeWrapped = pkgs.writeShellScriptBin "opencode" ''
-          ${sourceHomeopsMcpEnv}
-          if [ "''${1-}" = "auth" ]; then
-            shift
-            exec ${pkgs.opencode}/bin/opencode --pure auth "$@"
-          fi
-          exec ${pkgs.opencode}/bin/opencode "$@"
-        '';
+        playwrightMcpCommand = lib.getExe playwrightMcpWrapped;
+
+        # ------------------------------------------------------------------
+        # MCP registry (agent-agnostic)
+        #
+        # Declare each MCP server once; the per-agent adapters below render it
+        # into whatever shape that agent wants. Adding a server, or pointing an
+        # existing one somewhere else, is a single edit here.
+        #
+        #   transport  "http" (remote URL) or "stdio" (local command)
+        #   command    stdio argv, as a list
+        #   url        remote URL as a *shell* string, expanded at activation
+        #              time from variables exported by the env loader
+        #   urlEnv     the same URL in OpenCode's `{env:VAR}` template syntax
+        #   needs      loader variables that must be non-empty, otherwise the
+        #              server is skipped with a warning instead of registered
+        #              with a half-resolved URL
+        #   headers    extra HTTP headers, OpenCode template syntax
+        #              (OpenCode only: `claude mcp add` bakes literal values)
+        #   agents     front-ends that get this server; default is all of them
+        # ------------------------------------------------------------------
+        allAgents = [
+          "claude-code"
+          "opencode"
+        ];
+        mcpServers = {
+          homeops_toolhive = {
+            transport = "http";
+            needs = [ "HOMEOPS_SECRET_DOMAIN" ];
+            url = "https://mcp.$HOMEOPS_SECRET_DOMAIN/mcp";
+            urlEnv = "https://mcp.{env:HOMEOPS_SECRET_DOMAIN}/mcp";
+          };
+          konflate = {
+            transport = "http";
+            needs = [ "HOMEOPS_SECRET_DOMAIN_2" ];
+            url = "https://konflate.$HOMEOPS_SECRET_DOMAIN_2/mcp";
+            urlEnv = "https://konflate.{env:HOMEOPS_SECRET_DOMAIN_2}/mcp";
+          };
+          memini = {
+            # Claude Code gets Memini from the plugin below (which brings its
+            # own MCP server as plugin:memini:memini), so only front-ends
+            # without that plugin register the bare server here.
+            agents = [ "opencode" ];
+            transport = "http";
+            needs = [
+              "MEMINI_MCP_URL"
+              "MEMINI_TOKEN"
+            ];
+            url = "$MEMINI_MCP_URL";
+            urlEnv = "{env:MEMINI_MCP_URL}";
+            headers = {
+              Authorization = "Bearer {env:MEMINI_TOKEN}";
+              "X-Memini-Namespace" = "{env:MEMINI_NAMESPACE}";
+            };
+          };
+          nixos = {
+            transport = "stdio";
+            command = [ mcpNixosCommand ];
+          };
+          playwright = {
+            transport = "stdio";
+            command = [ playwrightMcpCommand ];
+          };
+        };
+        mcpServersFor =
+          agent: lib.filterAttrs (_: srv: lib.elem agent (srv.agents or allAgents)) mcpServers;
+
+        # ------------------------------------------------------------------
+        # Plugin registry (agent-agnostic)
+        #
+        # Plugins are installed imperatively by the agent's own CLI, so this is
+        # an install-if-missing list rather than declarative state. Front-ends
+        # without a plugin CLI ignore it.
+        # ------------------------------------------------------------------
+        agentPlugins = [
+          {
+            id = "memini@memini";
+            plugin = "memini";
+            marketplace = "https://github.com/eleboucher/memini";
+          }
+        ];
+
+        # ------------------------------------------------------------------
+        # Wrappers: one shape for every agent
+        # ------------------------------------------------------------------
+        mkAgentWrapper =
+          {
+            name, # command name on PATH
+            program, # absolute path to the real binary
+            env ? { }, # extra environment for this agent
+            preExec ? "", # shell run before exec (argument dispatch, ...)
+          }:
+          pkgs.writeShellScriptBin name ''
+            ${sourceAgentEnv}
+            export PATH=${lib.escapeShellArg agentRuntimePath}:$PATH
+            ${lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}") env)}
+            ${preExec}
+            exec ${program} "$@"
+          '';
+
+        claudeCodeWrapper = mkAgentWrapper {
+          name = "claude";
+          program = claudeBin;
+          env.FORCE_AUTOUPDATE_PLUGINS = "1";
+        };
+
+        opencodeWrapper = mkAgentWrapper {
+          name = "opencode";
+          program = opencodeBin;
+          # `opencode auth` runs plugin-free so a broken plugin cannot block
+          # re-authentication.
+          preExec = ''
+            if [ "''${1-}" = "auth" ]; then
+              shift
+              exec ${opencodeBin} --pure auth "$@"
+            fi
+          '';
+        };
+
         opencodeMeminiUpdate = pkgs.writeShellScriptBin "opencode-memini-update" ''
           set -eu
           opencode_config_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
@@ -179,66 +281,78 @@
 
           exec ${pkgs.bun}/bin/bun install --cwd "$opencode_config_dir"
         '';
+
+        # ------------------------------------------------------------------
+        # Adapter: Claude Code
+        #
+        # Registers MCP servers with `claude mcp add --scope user`, so the
+        # servers follow the user across every project.
+        # ------------------------------------------------------------------
+        claudeMcpBlock =
+          name: srv:
+          let
+            needs = srv.needs or [ ];
+            add =
+              if srv.transport == "stdio" then
+                "${claudeBin} mcp add --scope user --transport stdio ${name} -- ${lib.escapeShellArgs srv.command}"
+              else
+                # Double quotes, not escapeShellArg: the shell must expand the
+                # loader variables inside the URL.
+                "${claudeBin} mcp add --scope user --transport http ${name} \"${srv.url}\"";
+            register = ''
+              ${claudeBin} mcp remove --scope user ${name} >/dev/null 2>&1 || true
+              ${add}
+            '';
+          in
+          if needs == [ ] then
+            register
+          else
+            ''
+              if ${lib.concatMapStringsSep " && " (v: "[ -n \"\${${v}:-}\" ]") needs}; then
+              ${register}
+              else
+                echo "WARNING: skipping ${name} MCP for Claude Code (unset ${lib.concatStringsSep ", " needs})" >&2
+              fi
+            '';
+
+        claudePluginBlock = p: ''
+          if [ -z "$(${claudeBin} plugin list --json 2>/dev/null \
+            | ${pkgs.jq}/bin/jq -r --arg id ${lib.escapeShellArg p.id} '.[] | select(.id == $id) | .installPath' \
+            | ${pkgs.coreutils}/bin/head -n1)" ]; then
+            ${claudeBin} plugin marketplace add ${lib.escapeShellArg p.marketplace} >/dev/null
+            ${claudeBin} plugin install ${lib.escapeShellArg p.plugin} >/dev/null
+          fi
+        '';
+
+        # ------------------------------------------------------------------
+        # Adapter: OpenCode
+        #
+        # Fully declarative: the whole MCP block is a generated config file.
+        # ------------------------------------------------------------------
+        opencodeMcpConfig = lib.mapAttrs (
+          _: srv:
+          if srv.transport == "stdio" then
+            {
+              type = "local";
+              inherit (srv) command;
+              enabled = true;
+              timeout = 30000;
+            }
+          else
+            {
+              type = "remote";
+              url = srv.urlEnv;
+              enabled = true;
+              timeout = 30000;
+            }
+            // lib.optionalAttrs (srv ? headers) {
+              oauth = false;
+              inherit (srv) headers;
+            }
+        ) (mcpServersFor "opencode");
       in
       {
-        home.activation.homeopsMcpCodexConfig = lib.hm.dag.entryAfter [ "retrieveOpnixSecrets" ] ''
-          if [ -n "''${DRY_RUN_CMD:-}" ]; then
-            echo "Skipping HomeOps Codex MCP config during dry run"
-          elif [ ! -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
-            echo "WARNING: ${homeopsMcpSecretDomainPath} is missing; skipping HomeOps Codex MCP config" >&2
-          else
-            domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
-            if [ -z "$domain" ]; then
-              echo "WARNING: ${homeopsMcpSecretDomainPath} is empty; skipping HomeOps Codex MCP config" >&2
-            else
-              ${codexPackage}/bin/codex mcp remove homeops_toolhive >/dev/null 2>&1 || true
-              ${codexPackage}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
-              ${codexPackage}/bin/codex mcp add homeops_toolhive --url "https://mcp.$domain/mcp"
-            fi
-          fi
-
-          if [ -r ${lib.escapeShellArg homeopsMcpSecretDomain2Path} ]; then
-            domain2="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomain2Path})"
-            if [ -z "$domain2" ]; then
-              echo "WARNING: ${homeopsMcpSecretDomain2Path} is empty; skipping konflate Codex MCP config" >&2
-            else
-              ${codexPackage}/bin/codex mcp remove konflate >/dev/null 2>&1 || true
-              ${codexPackage}/bin/codex mcp add konflate --url "https://konflate.$domain2/mcp"
-            fi
-          else
-            echo "WARNING: ${homeopsMcpSecretDomain2Path} is missing; skipping konflate Codex MCP config" >&2
-          fi
-        '';
-
-        home.activation.homeopsMcpClaudeConfig = lib.hm.dag.entryAfter [ "retrieveOpnixSecrets" ] ''
-          if [ -n "''${DRY_RUN_CMD:-}" ]; then
-            echo "Skipping HomeOps Claude MCP config during dry run"
-          elif [ ! -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
-            echo "WARNING: ${homeopsMcpSecretDomainPath} is missing; skipping HomeOps Claude MCP config" >&2
-          else
-            domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
-            if [ -z "$domain" ]; then
-              echo "WARNING: ${homeopsMcpSecretDomainPath} is empty; skipping HomeOps Claude MCP config" >&2
-            else
-              ${claudeCode}/bin/claude mcp remove --scope user homeops_toolhive >/dev/null 2>&1 || true
-              ${claudeCode}/bin/claude mcp add --scope user --transport http homeops_toolhive "https://mcp.$domain/mcp"
-            fi
-          fi
-
-          if [ -r ${lib.escapeShellArg homeopsMcpSecretDomain2Path} ]; then
-            domain2="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomain2Path})"
-            if [ -z "$domain2" ]; then
-              echo "WARNING: ${homeopsMcpSecretDomain2Path} is empty; skipping konflate Claude MCP config" >&2
-            else
-              ${claudeCode}/bin/claude mcp remove --scope user konflate >/dev/null 2>&1 || true
-              ${claudeCode}/bin/claude mcp add --scope user --transport http konflate "https://konflate.$domain2/mcp"
-            fi
-          else
-            echo "WARNING: ${homeopsMcpSecretDomain2Path} is missing; skipping konflate Claude MCP config" >&2
-          fi
-        '';
-
-        home.activation.meminiCodexPlugin =
+        home.activation.agentMcpClaudeCode =
           lib.hm.dag.entryAfter
             [
               "retrieveOpnixSecrets"
@@ -246,102 +360,30 @@
             ]
             ''
               if [ -n "''${DRY_RUN_CMD:-}" ]; then
-                echo "Skipping Memini Codex plugin config during dry run"
-              elif ! ${anthropicOnline}; then
-                echo "Skipping Memini Codex plugin config: api.anthropic.com unresolvable (offline)" >&2
-              elif [ ! -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
-                echo "ERROR: ${homeopsMcpSecretDomainPath} is missing; cannot configure Memini for Codex" >&2
-                exit 1
+                echo "Skipping Claude Code MCP wiring during dry run"
+              elif ! ${agentOnline "api.anthropic.com"}; then
+                echo "Skipping Claude Code MCP wiring: api.anthropic.com unresolvable (offline)" >&2
               else
-                domain="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
-                if [ -z "$domain" ]; then
-                  echo "ERROR: ${homeopsMcpSecretDomainPath} is empty; cannot configure Memini for Codex" >&2
-                  exit 1
-                fi
-
-                get_memini_install_path() {
-                  ${claudeCode}/bin/claude plugin list --json 2>/dev/null \
-                    | ${pkgs.jq}/bin/jq -r '.[] | select(.id == "memini@memini") | .installPath' \
-                    | ${pkgs.coreutils}/bin/head -n1
-                }
-
-                if [ -z "$(get_memini_install_path || true)" ]; then
-                  ${claudeCode}/bin/claude plugin marketplace add https://github.com/eleboucher/memini >/dev/null
-                  ${claudeCode}/bin/claude plugin install memini >/dev/null
-                fi
-
-                memini_install_path="$(get_memini_install_path || true)"
-                if [ -z "$memini_install_path" ] || [ ! -d "$memini_install_path" ]; then
-                  echo "ERROR: Claude Code Memini plugin is not installed; cannot mount it for Codex" >&2
-                  exit 1
-                fi
-
-                ${codexPackage}/bin/codex mcp remove homeops_memini >/dev/null 2>&1 || true
-                ${codexPackage}/bin/codex mcp remove memini >/dev/null 2>&1 || true
-                ${codexPackage}/bin/codex plugin remove memini --marketplace memini-upstream >/dev/null 2>&1 || true
-                ${codexPackage}/bin/codex plugin marketplace remove memini-upstream >/dev/null 2>&1 || true
-                ${codexPackage}/bin/codex plugin remove memini --marketplace claude-memini >/dev/null 2>&1 || true
-                ${codexPackage}/bin/codex plugin marketplace remove claude-memini >/dev/null 2>&1 || true
-
-                ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/.agents/plugins
-                ${pkgs.coreutils}/bin/mkdir -p ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/plugins
-                bridge_plugin_dir=${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/plugins/memini
-                if [ -e "$bridge_plugin_dir" ] || [ -L "$bridge_plugin_dir" ]; then
-                  ${pkgs.coreutils}/bin/rm -rf "$bridge_plugin_dir"
-                fi
-                ${pkgs.coreutils}/bin/cp -a "$memini_install_path" "$bridge_plugin_dir"
-
-                for plugin_json in "$bridge_plugin_dir/hooks/hooks.json" "$bridge_plugin_dir/.mcp.json"; do
-                  if [ -f "$plugin_json" ]; then
-                    tmp_json="$plugin_json.tmp"
-                    ${pkgs.jq}/bin/jq 'del(.["//"])' "$plugin_json" > "$tmp_json"
-                    ${pkgs.coreutils}/bin/mv "$tmp_json" "$plugin_json"
-                  fi
-                done
-
-                ${pkgs.coreutils}/bin/install -Dm0644 \
-                  ${lib.escapeShellArg claudeMeminiCodexMarketplaceJson} \
-                  ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir}/.agents/plugins/marketplace.json
-
-                ${codexPackage}/bin/codex plugin marketplace add ${lib.escapeShellArg claudeMeminiCodexMarketplaceDir} >/dev/null
-                ${codexPackage}/bin/codex plugin add memini@claude-memini >/dev/null
-                ${codexPackage}/bin/codex mcp remove memini >/dev/null 2>&1 || true
-                ${codexPackage}/bin/codex mcp add memini --url "https://memini.$domain/mcp" --bearer-token-env-var MEMINI_TOKEN
+                ${sourceAgentEnv}
+                ${lib.concatStringsSep "\n" (lib.mapAttrsToList claudeMcpBlock (mcpServersFor "claude-code"))}
               fi
             '';
 
-        home.activation.nixosMcpCodexConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          if [ -n "''${DRY_RUN_CMD:-}" ]; then
-            echo "Skipping NixOS Codex MCP config during dry run"
-          elif ! ${anthropicOnline}; then
-            echo "Skipping NixOS Codex MCP config: api.anthropic.com unresolvable (offline)" >&2
-          else
-            ${codexPackage}/bin/codex mcp remove nixos >/dev/null 2>&1 || true
-            ${codexPackage}/bin/codex mcp add nixos -- ${lib.escapeShellArg mcpNixosCommand}
-          fi
-        '';
-
-        home.activation.nixosMcpClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          if [ -n "''${DRY_RUN_CMD:-}" ]; then
-            echo "Skipping NixOS Claude MCP config during dry run"
-          elif ! ${anthropicOnline}; then
-            echo "Skipping NixOS Claude MCP config: api.anthropic.com unresolvable (offline)" >&2
-          else
-            ${claudeCode}/bin/claude mcp remove --scope user nixos >/dev/null 2>&1 || true
-            ${claudeCode}/bin/claude mcp add --scope user --transport stdio nixos -- ${lib.escapeShellArg mcpNixosCommand}
-          fi
-        '';
-
-        home.activation.playwrightMcpClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          if [ -n "''${DRY_RUN_CMD:-}" ]; then
-            echo "Skipping Playwright Claude MCP config during dry run"
-          elif ! ${anthropicOnline}; then
-            echo "Skipping Playwright Claude MCP config: api.anthropic.com unresolvable (offline)" >&2
-          else
-            ${claudeCode}/bin/claude mcp remove --scope user playwright >/dev/null 2>&1 || true
-            ${claudeCode}/bin/claude mcp add --scope user --transport stdio playwright -- ${lib.escapeShellArg playwrightMcpCommand}
-          fi
-        '';
+        home.activation.agentPluginsClaudeCode =
+          lib.hm.dag.entryAfter
+            [
+              "retrieveOpnixSecrets"
+              "writeBoundary"
+            ]
+            ''
+              if [ -n "''${DRY_RUN_CMD:-}" ]; then
+                echo "Skipping Claude Code plugin install during dry run"
+              elif ! ${agentOnline "api.anthropic.com"}; then
+                echo "Skipping Claude Code plugin install: api.anthropic.com unresolvable (offline)" >&2
+              else
+                ${lib.concatStringsSep "\n" (map claudePluginBlock agentPlugins)}
+              fi
+            '';
 
         # Claude Code writes runtime state (theme, model, /config toggles) back into
         # ~/.claude/settings.json, so it cannot be a read-only Nix-store symlink. Merge
@@ -349,7 +391,7 @@
         # attribution strings drop the "Co-Authored-By: Claude" commit trailer and the
         # "Generated with Claude Code" PR line (the non-deprecated successor to
         # includeCoAuthoredBy).
-        home.activation.claudeCodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        home.activation.agentSettingsClaudeCode = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if [ -n "''${DRY_RUN_CMD:-}" ]; then
             echo "Skipping Claude Code settings.json attribution merge during dry run"
           else
@@ -370,37 +412,7 @@
 
         xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
-          mcp = {
-            homeops_toolhive = {
-              type = "remote";
-              url = "https://mcp.{env:HOMEOPS_SECRET_DOMAIN}/mcp";
-              enabled = true;
-              timeout = 30000;
-            };
-            konflate = {
-              type = "remote";
-              url = "https://konflate.{env:HOMEOPS_SECRET_DOMAIN_2}/mcp";
-              enabled = true;
-              timeout = 30000;
-            };
-            memini = {
-              type = "remote";
-              url = "{env:MEMINI_MCP_URL}";
-              enabled = true;
-              oauth = false;
-              timeout = 30000;
-              headers = {
-                Authorization = "Bearer {env:MEMINI_TOKEN}";
-                "X-Memini-Namespace" = "{env:MEMINI_NAMESPACE}";
-              };
-            };
-            nixos = {
-              type = "local";
-              command = [ mcpNixosCommand ];
-              enabled = true;
-              timeout = 30000;
-            };
-          };
+          mcp = opencodeMcpConfig;
         };
         xdg.configFile."opencode/package.json" = {
           force = true;
@@ -423,10 +435,9 @@
         };
 
         home.packages = with pkgs; [
-          claudeCodeWrapped
-          codexWrapped
+          claudeCodeWrapper
+          opencodeWrapper
           opencodeMeminiUpdate
-          opencodeWrapped
           mcp-nixos
         ];
       };
