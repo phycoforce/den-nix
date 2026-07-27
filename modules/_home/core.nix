@@ -97,6 +97,31 @@ in
       enable = true;
       createDirectories = true;
     };
+    # Declarative default applications. Without an explicit web handler, xdg
+    # falls back to the first .desktop claiming the scheme, which put
+    # chromium-browser ahead of firefox once chromium was installed.
+    mimeApps = {
+      enable = true;
+      defaultApplications = {
+        "text/html" = "firefox.desktop";
+        "application/xhtml+xml" = "firefox.desktop";
+        "x-scheme-handler/http" = "firefox.desktop";
+        "x-scheme-handler/https" = "firefox.desktop";
+        "x-scheme-handler/about" = "firefox.desktop";
+        "x-scheme-handler/unknown" = "firefox.desktop";
+
+        "x-scheme-handler/mailto" = "thunderbird.desktop";
+        "x-scheme-handler/mid" = "thunderbird.desktop";
+        "x-scheme-handler/net.thunderbird" = "thunderbird.desktop";
+        "message/rfc822" = "thunderbird.desktop";
+
+        "x-scheme-handler/discord" = "vesktop.desktop";
+        "x-scheme-handler/abc" = "plexamp.desktop";
+        "x-scheme-handler/claude-cli" = "claude-code-url-handler.desktop";
+      };
+    };
+    # mimeapps.list already exists as a plain file written by desktop apps.
+    configFile."mimeapps.list".force = true;
   };
 
   programs.git = {
