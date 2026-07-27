@@ -1,4 +1,4 @@
-{ den, ... }:
+{ den, inputs, ... }:
 {
   flake-file.inputs = {
     nixpkgs-codex.url = "github:NixOS/nixpkgs/master";
@@ -11,6 +11,19 @@
         "claude-code"
       ])
     ];
+
+    provides.to-hosts.nixos = {
+      # Force the subscription (Claude Pro/Max OAuth) login method system-wide
+      # as a backstop so claude-code never silently falls back to API billing.
+      # forceLoginMethod is only honored via managed settings
+      # (/etc/claude-code/managed-settings.json on Linux), not
+      # ~/.claude/settings.json. "claudeai" = subscription; "console" = API.
+      # The real fix for the daily re-login is the offline activation guard
+      # (anthropicOnline) below; this is defense-in-depth.
+      environment.etc."claude-code/managed-settings.json".text = builtins.toJSON {
+        forceLoginMethod = "claudeai";
+      };
+    };
 
     homeManager =
       {
@@ -46,6 +59,26 @@
         playwrightMcpCommand = lib.getExe playwrightMcpWrapped;
         codexHookPath = lib.makeBinPath [ pkgs.nodejs_22 ];
         codexPackage = inputs'.nixpkgs-codex.legacyPackages.codex;
+        # claude-code from the master-tracking nixpkgs-codex input so the CLI
+        # tracks the latest release (Opus 5 needs >= 2.1.219) independently of
+        # the main nixos-unstable pin, which is held back by other packages
+        # (e.g. niri vs libdisplay-info). legacyPackages carries the default
+        # nixpkgs config (allowUnfree = false) and den.batteries.unfree only
+        # configures the OS/HM pkgs set, so re-instantiate this input with an
+        # allowlist predicate for claude-code. Bump it with:
+        #   nix flake update nixpkgs-codex
+        claudeCode =
+          (import inputs.nixpkgs-codex {
+            inherit (pkgs.stdenv.hostPlatform) system;
+            config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "claude-code" ];
+          }).claude-code;
+        # DNS resolution check for Anthropic's API. Boot-time home-manager
+        # activation runs before network-online.target; launching the claude
+        # CLI while DNS is down makes its short-lived (~7h) OAuth token refresh
+        # fail, which silently drops the session to API billing and forces a
+        # daily re-login. Gate every claude/codex-invoking activation step on
+        # this so they no-op when offline instead of clobbering ~/.claude.json.
+        anthropicOnline = "${pkgs.getent}/bin/getent hosts api.anthropic.com >/dev/null 2>&1";
         claudeMeminiCodexMarketplaceDir = "${config.xdg.configHome}/codex-plugin-marketplaces/claude-memini";
         claudeMeminiCodexMarketplaceJson = pkgs.writeText "claude-memini-marketplace.json" (
           builtins.toJSON {
@@ -122,7 +155,7 @@
           ${sourceHomeopsMcpEnv}
           export PATH=${lib.escapeShellArg codexHookPath}:$PATH
           export FORCE_AUTOUPDATE_PLUGINS=1
-          exec ${pkgs.claude-code}/bin/claude "$@"
+          exec ${claudeCode}/bin/claude "$@"
         '';
         opencodeWrapped = pkgs.writeShellScriptBin "opencode" ''
           ${sourceHomeopsMcpEnv}
@@ -187,8 +220,8 @@
             if [ -z "$domain" ]; then
               echo "WARNING: ${homeopsMcpSecretDomainPath} is empty; skipping HomeOps Claude MCP config" >&2
             else
-              ${pkgs.claude-code}/bin/claude mcp remove --scope user homeops_toolhive >/dev/null 2>&1 || true
-              ${pkgs.claude-code}/bin/claude mcp add --scope user --transport http homeops_toolhive "https://mcp.$domain/mcp"
+              ${claudeCode}/bin/claude mcp remove --scope user homeops_toolhive >/dev/null 2>&1 || true
+              ${claudeCode}/bin/claude mcp add --scope user --transport http homeops_toolhive "https://mcp.$domain/mcp"
             fi
           fi
 
@@ -197,8 +230,8 @@
             if [ -z "$domain2" ]; then
               echo "WARNING: ${homeopsMcpSecretDomain2Path} is empty; skipping konflate Claude MCP config" >&2
             else
-              ${pkgs.claude-code}/bin/claude mcp remove --scope user konflate >/dev/null 2>&1 || true
-              ${pkgs.claude-code}/bin/claude mcp add --scope user --transport http konflate "https://konflate.$domain2/mcp"
+              ${claudeCode}/bin/claude mcp remove --scope user konflate >/dev/null 2>&1 || true
+              ${claudeCode}/bin/claude mcp add --scope user --transport http konflate "https://konflate.$domain2/mcp"
             fi
           else
             echo "WARNING: ${homeopsMcpSecretDomain2Path} is missing; skipping konflate Claude MCP config" >&2
@@ -214,6 +247,8 @@
             ''
               if [ -n "''${DRY_RUN_CMD:-}" ]; then
                 echo "Skipping Memini Codex plugin config during dry run"
+              elif ! ${anthropicOnline}; then
+                echo "Skipping Memini Codex plugin config: api.anthropic.com unresolvable (offline)" >&2
               elif [ ! -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
                 echo "ERROR: ${homeopsMcpSecretDomainPath} is missing; cannot configure Memini for Codex" >&2
                 exit 1
@@ -225,14 +260,14 @@
                 fi
 
                 get_memini_install_path() {
-                  ${pkgs.claude-code}/bin/claude plugin list --json 2>/dev/null \
+                  ${claudeCode}/bin/claude plugin list --json 2>/dev/null \
                     | ${pkgs.jq}/bin/jq -r '.[] | select(.id == "memini@memini") | .installPath' \
                     | ${pkgs.coreutils}/bin/head -n1
                 }
 
                 if [ -z "$(get_memini_install_path || true)" ]; then
-                  ${pkgs.claude-code}/bin/claude plugin marketplace add https://github.com/eleboucher/memini >/dev/null
-                  ${pkgs.claude-code}/bin/claude plugin install memini >/dev/null
+                  ${claudeCode}/bin/claude plugin marketplace add https://github.com/eleboucher/memini >/dev/null
+                  ${claudeCode}/bin/claude plugin install memini >/dev/null
                 fi
 
                 memini_install_path="$(get_memini_install_path || true)"
@@ -278,6 +313,8 @@
         home.activation.nixosMcpCodexConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if [ -n "''${DRY_RUN_CMD:-}" ]; then
             echo "Skipping NixOS Codex MCP config during dry run"
+          elif ! ${anthropicOnline}; then
+            echo "Skipping NixOS Codex MCP config: api.anthropic.com unresolvable (offline)" >&2
           else
             ${codexPackage}/bin/codex mcp remove nixos >/dev/null 2>&1 || true
             ${codexPackage}/bin/codex mcp add nixos -- ${lib.escapeShellArg mcpNixosCommand}
@@ -287,18 +324,22 @@
         home.activation.nixosMcpClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if [ -n "''${DRY_RUN_CMD:-}" ]; then
             echo "Skipping NixOS Claude MCP config during dry run"
+          elif ! ${anthropicOnline}; then
+            echo "Skipping NixOS Claude MCP config: api.anthropic.com unresolvable (offline)" >&2
           else
-            ${pkgs.claude-code}/bin/claude mcp remove --scope user nixos >/dev/null 2>&1 || true
-            ${pkgs.claude-code}/bin/claude mcp add --scope user --transport stdio nixos -- ${lib.escapeShellArg mcpNixosCommand}
+            ${claudeCode}/bin/claude mcp remove --scope user nixos >/dev/null 2>&1 || true
+            ${claudeCode}/bin/claude mcp add --scope user --transport stdio nixos -- ${lib.escapeShellArg mcpNixosCommand}
           fi
         '';
 
         home.activation.playwrightMcpClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if [ -n "''${DRY_RUN_CMD:-}" ]; then
             echo "Skipping Playwright Claude MCP config during dry run"
+          elif ! ${anthropicOnline}; then
+            echo "Skipping Playwright Claude MCP config: api.anthropic.com unresolvable (offline)" >&2
           else
-            ${pkgs.claude-code}/bin/claude mcp remove --scope user playwright >/dev/null 2>&1 || true
-            ${pkgs.claude-code}/bin/claude mcp add --scope user --transport stdio playwright -- ${lib.escapeShellArg playwrightMcpCommand}
+            ${claudeCode}/bin/claude mcp remove --scope user playwright >/dev/null 2>&1 || true
+            ${claudeCode}/bin/claude mcp add --scope user --transport stdio playwright -- ${lib.escapeShellArg playwrightMcpCommand}
           fi
         '';
 
