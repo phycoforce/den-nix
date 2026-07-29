@@ -45,6 +45,14 @@
         kubectlKrew = pkgs.writeShellScriptBin "kubectl-krew" ''
           exec ${pkgs.krew}/bin/krew "$@"
         '';
+        # WinBox 4 ships a prebuilt Qt that only carries the xcb platform
+        # plugin, so it aborts under the session-wide QT_QPA_PLATFORM=wayland
+        # set by niri. Force xcb (via xwayland) for this program only.
+        winbox = pkgs.winbox.overrideAttrs (old: {
+          postInstall = (old.postInstall or "") + ''
+            wrapProgram "$out/bin/WinBox" --set QT_QPA_PLATFORM xcb
+          '';
+        });
       in
       {
         home.sessionPath = [ "${krewRoot}/bin" ];
