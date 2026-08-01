@@ -55,7 +55,14 @@
         });
       in
       {
-        home.sessionPath = [ "${krewRoot}/bin" ];
+        home.sessionPath = [
+          "${krewRoot}/bin"
+          # mise activate (below) only updates PATH from interactive prompt
+          # hooks, so non-interactive shells (agents, editors, git hooks) see a
+          # stale or incomplete tool set. Shims re-resolve per invocation and
+          # act as the fallback; activate-mode paths still win interactively.
+          "${config.home.homeDirectory}/.local/share/mise/shims"
+        ];
         home.sessionVariables.KREW_ROOT = krewRoot;
 
         home.activation.krewPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
