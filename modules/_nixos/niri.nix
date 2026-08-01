@@ -43,7 +43,6 @@
     adwaita-icon-theme
     capitaine-cursors
     ghostty
-    gnome-icon-theme
     hicolor-icon-theme
     kdePackages.polkit-kde-agent-1
     kdePackages.breeze
