@@ -116,18 +116,14 @@ update-build *inputs:
     @just sync
     ./scripts/flake-update.sh --build "$@"
 
+# Loud transition stub, not an alias: a silent rename would hide that the
+# semantics changed. Delete once fingers have adjusted. (update-lock,
+# update-input and bisect-lock were removed outright - the first two were pure
+# redundancy, and `update` bisects automatically on failure.)
+[doc("Renamed - fails loudly; use update / update-build")]
 update-verified *inputs:
     @echo "renamed: 'just update' = gate only (no local build); 'just update-build' = old behaviour." >&2
     @exit 2
-
-[doc("Deprecated aliases for update")]
-update-lock *inputs:
-    @just update "$@"
-
-update-input input: (update input)
-
-bisect-lock *inputs:
-    @just update "$@"
 
 [doc("Hold nixpkgs at a known-good revision; release with: just update nixpkgs")]
 pin-nixpkgs rev:
