@@ -1,11 +1,5 @@
-{ den, inputs, ... }:
+{ den, ... }:
 {
-  flake-file.inputs = {
-    # Bleeding-edge nixpkgs used only for agent CLIs that release faster than
-    # nixos-unstable can carry them. Bump with: nix flake update nixpkgs-agents
-    nixpkgs-agents.url = "github:NixOS/nixpkgs/master";
-  };
-
   den.aspects.agents = {
     includes = [
       den.aspects.foundation
@@ -44,18 +38,13 @@
         # Agent packages
         # ------------------------------------------------------------------
 
-        # claude-code from the master-tracking nixpkgs-agents input so the CLI
-        # tracks the latest release (Opus 5 needs >= 2.1.219) independently of
-        # the main nixos-unstable pin, which is held back by other packages
-        # (e.g. niri vs libdisplay-info). legacyPackages carries the default
-        # nixpkgs config (allowUnfree = false) and den.batteries.unfree only
-        # configures the OS/HM pkgs set, so re-instantiate this input with an
-        # allowlist predicate for claude-code.
-        claudeCode =
-          (import inputs.nixpkgs-agents {
-            inherit (pkgs.stdenv.hostPlatform) system;
-            config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "claude-code" ];
-          }).claude-code;
+        # claude-code from the ordinary nixpkgs (unfree battery above allows
+        # it). The separate master-tracking nixpkgs-agents input was retired
+        # 2026-08-01: nixos-unstable had caught up (both carried 2.1.220), and
+        # a whole extra ungated nixpkgs universe per CLI is exactly the
+        # update-pain shape this repo is rid of. tests.nix asserts the version
+        # stays >= 2.1.219 (Opus 5 floor) so a silent downgrade cannot land.
+        claudeCode = pkgs.claude-code;
         claudeBin = "${claudeCode}/bin/claude";
         opencodeBin = "${pkgs.opencode}/bin/opencode";
 

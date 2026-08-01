@@ -1,0 +1,11 @@
+# Measured expected-local set: pnames that no substituter serves at a
+# healthy lock (unfree wrappers, FHS envs, config artifacts). Regenerate
+# with: just gate-baseline   Entries matching a BLOCK pattern are never
+# written here. Generated 2026-08-01 against e2587caef70c.
+gamescope
+mise-bash-completion.bash
+plexamp
+spotify
+steam
+steam-run
+thunderbird

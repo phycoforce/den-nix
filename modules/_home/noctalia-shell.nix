@@ -58,6 +58,11 @@ in
   programs.noctalia-shell = {
     enable = true;
 
+    # nixpkgs' noctalia-shell (same v4 line as the frozen legacy-v4 branch,
+    # newer, Hydra-cached). Overrides the flake module's mkDefault of its own
+    # package, so the input's private closure is never instantiated.
+    package = pkgs.noctalia-shell;
+
     colors = {
       mError = "#f38ba8";
       mHover = "#94e2d5";

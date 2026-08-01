@@ -1,0 +1,167 @@
+name: Flake update
+
+# Scheduled per-input lock updater: bumps everything, gates each candidate
+# (plan-gate + write-flake drift + flake check + fmt + lint), holds back ONLY
+# broken inputs, builds the result, pushes the closure to cachix, and lands
+# the proven lock on main. The desktop then adopts it with `just sync` and
+# switches fetch-only.
+#
+# It pushes DIRECTLY to main with GITHUB_TOKEN: per GitHub docs, "with the
+# exception of workflow_dispatch and repository_dispatch, other
+# GITHUB_TOKEN-triggered events do not create workflow runs at all", so this
+# push will NOT re-trigger ci.yml. That is deliberate (no duplicate multi-GiB
+# build) - which is exactly why this job must run every gate ci.yml would
+# have run, itself, before it pushes (scripts/flake-update.sh --ci does).
+
+on:
+  schedule:
+    # Not on the hour: GitHub delays `schedule` during the high-load start of
+    # every hour.
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Space-separated root inputs to try (empty = all)
+        required: false
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: flake-update
+  # Never cancel: a half-committed lock or half-pushed cache must not be left
+  # behind mid-run.
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: update
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: write # push the flake.lock commit to main
+    steps:
+      # Load-bearing: the host closure is ~30 GiB realized; a stock runner
+      # cannot hold it.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          swap-storage: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@a49548c11d9846ad46ecc0115273879b045f001c # v31
+        with:
+          # Without this, ~14 GitHub flake inputs exhaust the 60/hr anonymous
+          # API budget mid-loop and `nix flake update` silently no-ops.
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          # accept-flake-config in nix.conf, not per-invocation: a single
+          # invocation missing the flag would probe WITHOUT the five extra
+          # substituters and hold every input forever.
+          extra_nix_config: |
+            accept-flake-config = true
+            http-connections = 50
+            max-substitution-jobs = 32
+
+      - name: Cachix
+        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        with:
+          name: phycoforce
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          # No post-build-hook pushing: a run that ends up holding every input
+          # (or failing the build) must not spend the 5 GB free tier on paths
+          # for a lock that never lands. One explicit push after success.
+          skipPush: true
+
+      # The dispatch input reaches the script only through env and is
+      # word-split under our control after a character-set check inside the
+      # script; it can never smuggle flags into `nix flake update`.
+      - name: Update inputs and gate each candidate lock
+        id: update
+        env:
+          REQUESTED_INPUTS: ${{ inputs.only }}
+        run: |
+          set -euo pipefail
+          read -ra reqs <<<"${REQUESTED_INPUTS:-}"
+          ./scripts/flake-update.sh --ci "${reqs[@]}"
+
+      - name: Build host toplevel
+        id: build
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          out="$(nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --print-build-logs --no-link --print-out-paths)"
+          echo "out=$out" >>"$GITHUB_OUTPUT"
+
+      - name: Push closure to cachix and verify
+        if: steps.update.outputs.changed == 'true'
+        env:
+          TOPLEVEL_OUT: ${{ steps.build.outputs.out }}
+        run: |
+          set -euo pipefail
+          cachix push phycoforce "$TOPLEVEL_OUT"
+          # Rollback safety: cachix GC is LRU by last access and the desktop
+          # never re-fetches what it already has, so pin the current + previous
+          # generation out of the eviction race.
+          cachix pin phycoforce temperantia "$TOPLEVEL_OUT" --keep-revisions 2 \
+            || echo "::warning::cachix pin failed (non-fatal)"
+          # Close the loop instead of trusting the push: a read-only
+          # CACHIX_AUTH_TOKEN would otherwise turn this job into a lock-bumper
+          # that warms nothing, with no red X anywhere.
+          hash="$(basename "$TOPLEVEL_OUT")"; hash="${hash%%-*}"
+          curl -sfI "https://phycoforce.cachix.org/$hash.narinfo" >/dev/null \
+            || { echo "toplevel narinfo missing from phycoforce.cachix.org after push" >&2; exit 1; }
+
+      - name: Commit and push the proven lock
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # flake.nix rides along when a bump changed flake-file codegen or
+          # the embedded nixfmt (regenerated by the gate); nothing else may.
+          git add flake.lock flake.nix
+          git commit --file "$RUNNER_TEMP/commit-message.txt"
+          # Credential helper instead of a token-in-URL remote: the secret is
+          # read from the environment at push time, never lands in argv,
+          # `git remote -v`, or an error message.
+          # shellcheck disable=SC2016
+          helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
+          for attempt in 1 2 3; do
+            if git -c credential.helper= -c "credential.helper=$helper" \
+                push origin HEAD:refs/heads/main; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto origin/main" >&2
+            git -c credential.helper= -c "credential.helper=$helper" fetch origin main
+            if ! git rebase origin/main; then
+              # A human touched flake.lock concurrently - the machine stands
+              # down rather than resolving over them.
+              git rebase --abort || true
+              echo "flake.lock conflicts with a concurrent human push; not resolving automatically" >&2
+              exit 1
+            fi
+          done
+          echo "could not land flake.lock on main after 3 attempts" >&2
+          exit 1
+
+      - name: Job summary
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f "$RUNNER_TEMP/flake-update-summary.md" ]; then
+            cat "$RUNNER_TEMP/flake-update-summary.md" >>"$GITHUB_STEP_SUMMARY"
+          fi

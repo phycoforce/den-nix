@@ -1,21 +1,20 @@
 version: 2
 updates:
-  # Refresh flake.lock inputs. nixpkgs tracks the nixos-unstable branch, so this
-  # refreshes the locked rev rather than bumping a version - same as a manual
-  # `nix flake update`. All inputs are grouped into a single weekly PR.
-  - package-ecosystem: "nix"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    groups:
-      flake-inputs:
-        patterns: ["*"]
-    commit-message:
-      prefix: "chore"
+  # flake.lock is NOT managed here anymore: .github/workflows/flake-update.yml
+  # (daily schedule + workflow_dispatch) bumps inputs individually, gates each
+  # candidate, holds only broken inputs, and lands proven locks on main with
+  # the closure already in cachix. Dependabot's nix ecosystem could only offer
+  # a weekly all-or-nothing group with no attribution and no security-advisory
+  # function (flake inputs are pseudo-versions; GitHub's table lists nix as
+  # version-updates-only), so removing it loses nothing and also silences its
+  # recurring dependency_file_content_not_changed errors on transitive nodes.
 
   # Keep the SHA-pinned GitHub Actions in .github/workflows/ current. Dependabot
   # bumps both the SHA and the trailing `# vN` comment. A cooldown delays brand-
   # new tags so a compromised/rushed release has time to be caught first.
+  # Merging the weekly PR is a manual click after CI - automerge.yml was
+  # removed: it merged with GITHUB_TOKEN before its own gate finished (no
+  # branch protection) and its merge pushes could never trigger workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

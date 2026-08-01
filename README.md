@@ -339,7 +339,14 @@ network or route investigation.
 
 ## Rebuilds After Install
 
-After edits:
+The gated day-to-day path is `just switch` (or `just switch-installed`), which
+runs the plan-gate first — it refuses locks whose non-trivial derivations no
+substituter can serve. To take updates: `just sync && just switch` adopts the
+lock the daily CI updater already proved and pushed to phycoforce.cachix.org;
+`just update && just switch` goes newer than the bot. See AGENTS.md.
+
+The raw commands below run NO gate — use them only when `just` is unavailable
+(e.g. the first rebuild after install):
 
 ```sh
 extra_substituters="https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org"
@@ -358,12 +365,13 @@ The explicit cache options matter on the first rebuild after adding or changing
 binary caches, because the current Nix daemon cannot use cache settings from a
 generation that has not been built yet.
 
-For kernel or NVIDIA driver changes, use `nixos-rebuild boot` with the same
-cache options and reboot. A live `switch` can activate the new NVIDIA userspace
-while the machine is still running the old kernel, which can make
-`nvidia-persistenced.service` fail until the next boot.
+For kernel or NVIDIA driver changes, use `just boot` (gated) or
+`nixos-rebuild boot` with the same cache options, then reboot. A live `switch`
+can activate the new NVIDIA userspace while the machine is still running the
+old kernel, which can make `nvidia-persistenced.service` fail until the next
+boot.
 
-Or with `nh`:
+Or with `nh` (again, no gate):
 
 ```sh
 nh os switch /etc/nixos/den-desktop

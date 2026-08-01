@@ -6,6 +6,7 @@
     { pkgs, ... }:
     let
       temperantia = inputs.self.nixosConfigurations.temperantia.config;
+      temperantiaPkgs = inputs.self.nixosConfigurations.temperantia.pkgs;
       aaron-at-temperantia = temperantia.home-manager.users.aaron;
       checkCond = name: cond: pkgs.runCommandLocal name { } (if cond then "touch $out" else "");
     in
@@ -16,5 +17,43 @@
       checks.aaron-hm-bash = checkCond "aaron-hm-bash" aaron-at-temperantia.programs.bash.enable;
       # user aspect provides.to-hosts.nixos cross-provider path (aaron-linux -> host)
       checks.aaron-provides-1password = checkCond "aaron-provides-1password" temperantia.programs._1password.enable;
+
+      # Consolidation invariants (2026-08): the update-pain root cause was
+      # multiple desynchronized nixpkgs universes. Keep them from creeping back.
+      #
+      # No root input may drag a private nixpkgs into the lock. Allowed nodes:
+      # the root's own (whatever alias it resolves to), nixpkgs-lib
+      # (flake-parts, lib-only), and nix-cachyos-kernel's pin (named plain
+      # "nixpkgs" here; intentional - its binary cache depends on it).
+      checks.lock-no-private-nixpkgs =
+        let
+          lock = builtins.fromJSON (builtins.readFile ../flake.lock);
+          rootNixpkgs = lock.nodes.root.inputs.nixpkgs;
+          allowed = [
+            rootNixpkgs
+            "nixpkgs-lib"
+            "nixpkgs"
+          ];
+          offenders = builtins.filter (
+            n: (builtins.match "nixpkgs.*" n != null) && !(builtins.elem n allowed)
+          ) (builtins.attrNames lock.nodes);
+        in
+        checkCond "lock-no-private-nixpkgs" (offenders == [ ]);
+
+      # claude-code now comes from the ordinary nixpkgs (the master-tracking
+      # nixpkgs-agents input is gone); Opus 5 needs >= 2.1.219, so a nixpkgs
+      # hold/downgrade must not silently reintroduce an incompatible CLI.
+      checks.claude-code-floor = checkCond "claude-code-floor" (
+        pkgs.lib.versionAtLeast temperantiaPkgs.claude-code.version "2.1.219"
+      );
+
+      # noctalia-shell must stay the nixpkgs build (Hydra-cached); the flake
+      # input exists only for its HM module, and a future import reshuffle
+      # restoring its own mkDefault package would silently resurrect the
+      # private-universe problem.
+      checks.noctalia-package-from-nixpkgs = checkCond "noctalia-package-from-nixpkgs" (
+        aaron-at-temperantia.programs.noctalia-shell.package.outPath
+        == temperantiaPkgs.noctalia-shell.outPath
+      );
     };
 }
