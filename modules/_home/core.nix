@@ -97,31 +97,11 @@ in
       enable = true;
       createDirectories = true;
     };
-    # Declarative default applications. Without an explicit web handler, xdg
-    # falls back to the first .desktop claiming the scheme, which put
-    # chromium-browser ahead of firefox once chromium was installed.
-    mimeApps = {
-      enable = true;
-      defaultApplications = {
-        "text/html" = "firefox.desktop";
-        "application/xhtml+xml" = "firefox.desktop";
-        "x-scheme-handler/http" = "firefox.desktop";
-        "x-scheme-handler/https" = "firefox.desktop";
-        "x-scheme-handler/about" = "firefox.desktop";
-        "x-scheme-handler/unknown" = "firefox.desktop";
-
-        "x-scheme-handler/mailto" = "thunderbird.desktop";
-        "x-scheme-handler/mid" = "thunderbird.desktop";
-        "x-scheme-handler/net.thunderbird" = "thunderbird.desktop";
-        "message/rfc822" = "thunderbird.desktop";
-
-        "x-scheme-handler/discord" = "vesktop.desktop";
-        "x-scheme-handler/abc" = "plexamp.desktop";
-        "x-scheme-handler/claude-cli" = "claude-code-url-handler.desktop";
-      };
-    };
-    # mimeapps.list already exists as a plain file written by desktop apps.
-    configFile."mimeapps.list".force = true;
+    # No declarative xdg.mimeApps block: it only ever existed because an
+    # installed chromium outranked firefox for the web schemes. With chromium
+    # gone the apps' own .desktop registrations resolve correctly on their own,
+    # and the pinned list (plus the forced mimeapps.list) fought the desktop
+    # apps that write that file at runtime.
   };
 
   programs.git = {

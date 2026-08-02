@@ -2,7 +2,6 @@
 {
   home.packages = with pkgs; [
     brightnessctl
-    chromium
     cliphist
     firefox
     grim

@@ -1,5 +1,18 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
+let
+  # Wallpapers live in the repo (../../wallpapers) so a fresh install carries
+  # them; home.file below materializes them under $HOME as individual symlinks
+  # (recursive = true), which keeps the directory itself writable — dropping an
+  # extra image in by hand still works, it is just not tracked.
+  wallpaperRelPath = "Pictures/Wallpapers";
+  wallpaperDir = "${config.home.homeDirectory}/${wallpaperRelPath}";
+in
 {
+  home.file.${wallpaperRelPath} = {
+    source = ../../wallpapers;
+    recursive = true;
+  };
+
   # Noctalia v5 (C++ rewrite). Deliberately close to upstream defaults: the
   # v4 theming/config surface was not ported (see modules/_archive/noctalia-v4).
   programs.noctalia = {
@@ -34,9 +47,21 @@
       };
 
       # Bar list entries resolve by name against [widget.<name>] definitions,
-      # so this attaches settings to the "network" entry in the default end
-      # section without restating the list.
-      widget.network.show_label = false;
+      # so these attach settings to entries in the default end section without
+      # restating the list.
+      widget = {
+        network.show_label = false;
+        # Collapse the system tray into a drawer panel behind a toggle button
+        # instead of spilling every icon across the bar.
+        tray.drawer = true;
+      };
+
+      wallpaper = {
+        directory = wallpaperDir;
+        # Rotate through the directory on the upstream default schedule
+        # (random order, every 1800s, recursive).
+        automation.enabled = true;
+      };
 
       # IP geolocation for weather/night-light instead of a fixed address.
       location.auto_locate = true;
@@ -71,7 +96,10 @@
           #    colors up too via QT_QPA_PLATFORMTHEME=gtk3, which is also why
           #    the "qt" template stays off: its qt5ct/qt6ct color files would
           #    never be read.
+          #  - btop: writes btop/themes/noctalia.theme and repoints
+          #    color_theme (programs.btop is enabled in _home/core.nix).
           builtin_ids = [
+            "btop"
             "ghostty"
             "gtk3"
             "gtk4"
