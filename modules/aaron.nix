@@ -33,6 +33,7 @@
     includes = [
       den.aspects.aaron
       (den.batteries.unfree [ "1password" ])
+      den.aspects.browsers
       den.aspects.communication
       den.aspects.desktop
       den.aspects.development

@@ -373,7 +373,8 @@
         "nixpkgs": "nixpkgs_2",
         "noctalia": "noctalia",
         "opnix": "opnix",
-        "qylock": "qylock"
+        "qylock": "qylock",
+        "zen-browser": "zen-browser"
       }
     },
     "systems": {
@@ -403,6 +404,29 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "zen-browser": {
+      "inputs": {
+        "home-manager": [
+          "home-manager"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1785652409,
+        "narHash": "sha256-0273OvIPfkJcdv0+Z3iPL8+eSRavAwGRCnr+Y6tRjYY=",
+        "owner": "0xc000022070",
+        "repo": "zen-browser-flake",
+        "rev": "12224626d0d1cead79603f19601666360c715379",
+        "type": "github"
+      },
+      "original": {
+        "owner": "0xc000022070",
+        "repo": "zen-browser-flake",
         "type": "github"
       }
     }
