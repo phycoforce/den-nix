@@ -44,7 +44,6 @@
     capitaine-cursors
     ghostty
     hicolor-icon-theme
-    kdePackages.polkit-kde-agent-1
     kdePackages.breeze
     kdePackages.breeze-icons
     nautilus
