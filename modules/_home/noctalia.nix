@@ -29,10 +29,14 @@
           "launcher"
           "wallpaper"
           "workspaces"
-          "cpu"
           "ram"
         ];
       };
+
+      # Bar list entries resolve by name against [widget.<name>] definitions,
+      # so this attaches settings to the "network" entry in the default end
+      # section without restating the list.
+      widget.network.show_label = false;
 
       # IP geolocation for weather/night-light instead of a fixed address.
       location.auto_locate = true;
