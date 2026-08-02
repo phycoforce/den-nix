@@ -152,8 +152,8 @@ nixos-install \
   --flake /mnt/etc/nixos/den-desktop#temperantia \
   --option extra-experimental-features "nix-command flakes" \
   --option accept-flake-config true \
-  --option extra-substituters "https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org" \
-  --option extra-trusted-public-keys "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc= noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+  --option extra-substituters "https://attic.xuyh0120.win/lantian https://nix-community.cachix.org" \
+  --option extra-trusted-public-keys "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
 ```
 
 When `nixos-install` prompts for a root password, set one. The `aaron` login
@@ -238,8 +238,8 @@ can create the files the first time.
 Niri should autostart:
 
 - `xwayland-satellite`
-- KDE polkit agent
-- `noctalia`
+- `noctalia` (also the session polkit agent — `shell.polkit_agent`; the
+  standalone KDE agent was dropped, only one can register per session)
 
 Useful checks after login:
 
@@ -249,7 +249,7 @@ systemctl status scx.service
 systemctl status display-manager.service
 nvidia-smi
 findmnt /mnt/SSD2
-pgrep -a 'niri|noctalia|xwayland-satellite|polkit-kde'
+pgrep -a 'niri|noctalia|xwayland-satellite'
 ```
 
 Useful checks for the OpNix-backed MCP setup:
@@ -349,9 +349,8 @@ The raw commands below run NO gate — use them only when `just` is unavailable
 (e.g. the first rebuild after install):
 
 ```sh
-extra_substituters="https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org"
+extra_substituters="https://attic.xuyh0120.win/lantian https://nix-community.cachix.org"
 extra_trusted_keys="lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
-extra_trusted_keys="$extra_trusted_keys noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
 extra_trusted_keys="$extra_trusted_keys nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
 
 sudo nixos-rebuild switch \

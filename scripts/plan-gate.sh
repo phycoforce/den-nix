@@ -61,7 +61,6 @@ SUBSTITUTERS=(
   "https://cache.nixos.org"
   "https://cache.xinux.uz"
   "https://attic.xuyh0120.win/lantian"
-  "https://noctalia.cachix.org"
   "https://nix-community.cachix.org"
   "https://phycoforce.cachix.org"
 )

@@ -199,10 +199,10 @@ status:
     printf '   cachyos-kernel %s  %s  (%sd)  inner nixpkgs %s (its own pin - by design)\n' \
       "$(lock "$ck" rev | cut -c1-12)" "$(date -d @"$(lock "$ck" lastModified)" +%F)" "$(age_of "$(lock "$ck" lastModified)")" "$(lock "$ckn" rev | cut -c1-12)"
     noc="$(jq -r '.nodes.root.inputs.noctalia // empty' flake.lock)"
-    [ -n "$noc" ] && printf '   noctalia       %s  %s  FROZEN/EOL branch, kept for the HM module only\n' \
+    [ -n "$noc" ] && printf '   noctalia       %s  %s  main; HM module only (package comes from nixpkgs)\n' \
       "$(lock "$noc" rev | cut -c1-12)" "$(date -d @"$(lock "$noc" lastModified)" +%F)"
     echo "== reachability =="
-    for sub in https://cache.nixos.org https://cache.xinux.uz https://attic.xuyh0120.win/lantian https://noctalia.cachix.org https://nix-community.cachix.org https://phycoforce.cachix.org; do
+    for sub in https://cache.nixos.org https://cache.xinux.uz https://attic.xuyh0120.win/lantian https://nix-community.cachix.org https://phycoforce.cachix.org; do
       t="$( { time -p curl -m 5 -s -o /dev/null "$sub/nix-cache-info"; } 2>&1 | awk '/^real/ {print $2"s"}' )" \
         && echo "   $sub  ${t:-ok}" || echo "   $sub  UNREACHABLE"
     done
