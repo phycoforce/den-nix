@@ -56,5 +56,19 @@
       checks.noctalia-package-from-nixpkgs = checkCond "noctalia-package-from-nixpkgs" (
         aaron-at-temperantia.programs.noctalia.package.outPath == temperantiaPkgs.noctalia.outPath
       );
+
+      # The client-side halves of those templates live away from the noctalia
+      # module: communication.nix creates the directory the discord template
+      # needs to render into at all, and development.nix installs the extension
+      # the vscode template rewrites. Dropping a community id here would leave
+      # both preparing for files nothing writes, with no eval or build error to
+      # show for it.
+      checks.noctalia-community-templates =
+        let
+          ids = aaron-at-temperantia.programs.noctalia.settings.theme.templates.community_ids;
+        in
+        checkCond "noctalia-community-templates" (
+          builtins.elem "discord" ids && builtins.elem "vscode" ids
+        );
     };
 }

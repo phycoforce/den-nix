@@ -53,6 +53,10 @@
             wrapProgram "$out/bin/WinBox" --set QT_QPA_PLATFORM xcb
           '';
         });
+
+        # Marketplace id of the theme noctalia's `vscode` community template
+        # renders into; see the activation script below.
+        vscodeThemeExtension = "Noctalia.noctaliatheme";
       in
       {
         home.sessionPath = [
@@ -101,6 +105,44 @@
           enable = true;
           package = pkgs.vscode;
         };
+
+        # NoctaliaTheme is an ordinary marketplace extension. The `vscode`
+        # community template (enabled in _home/noctalia.nix) does not ship it —
+        # it only rewrites the color file inside an installed copy, at
+        # ~/.vscode/extensions/noctalia.noctaliatheme-<version>/themes/, and
+        # creates that path even when nothing is installed there. VSCode loads
+        # only the extensions registered in extensions.json, so what the
+        # template leaves behind on its own is a palette nothing reads. Install
+        # it the way VSCode does, imperatively and idempotently, in the manner
+        # of the krew block above; picking it is then one Ctrl+K Ctrl+T
+        # ("NoctaliaTheme") away, and settings.json stays hand-edited.
+        #
+        # Declaring it through programs.vscode instead would symlink the
+        # extension directory into the store, and the template could no longer
+        # write the palette into it; it would also drag every other extension
+        # (all installed by hand from the Extensions view) under Nix.
+        #
+        # The version in the template's output path is pinned upstream, so a
+        # NoctaliaTheme release VSCode auto-updates past leaves the template
+        # writing to a directory that no longer exists — the theme then freezes
+        # at its shipped colors until upstream bumps the template.
+        home.activation.vscodeNoctaliaTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          extensions="${config.home.homeDirectory}/.vscode/extensions"
+
+          # A directory the template made on its own has themes/ but no
+          # manifest, and VSCode ignores it; that is the case to repair.
+          installed=""
+          for dir in "$extensions"/noctalia.noctaliatheme-*/; do
+            [ -f "$dir/package.json" ] && installed=1
+          done
+
+          if [ -z "$installed" ]; then
+            ${pkgs.coreutils}/bin/timeout 120 \
+              ${config.programs.vscode.package}/bin/code \
+              --install-extension ${lib.escapeShellArg vscodeThemeExtension} \
+              || echo "vscode: could not install ${vscodeThemeExtension} (offline?); it is also installable from the Extensions view" >&2
+          fi
+        '';
 
         programs.mise = {
           enable = true;

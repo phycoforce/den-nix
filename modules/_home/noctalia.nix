@@ -152,12 +152,19 @@ in
           ];
           #  - discord: writes the midnight/material/system24 CSS variants into
           #    ~/.config/vesktop/themes (vesktop is the client installed by
-          #    modules/communication.nix); tick one under Vesktop > Settings >
-          #    Themes to activate it. Unlike the vscode entries below, these
-          #    carry no `requires_path`, so the template also drops copies in
-          #    the config dirs of the other Discord clients it knows about.
-          #  - vscode: writes a Noctalia theme extension into ~/.vscode;
-          #    select "Noctalia Theme" once inside VSCode to activate it.
+          #    modules/communication.nix, which also creates that directory;
+          #    tick one under Vesktop > Settings > Themes). These
+          #    entries carry no `requires_path`, but the engine still renders
+          #    only where the output directory's parent already exists, so the
+          #    other Discord clients in the template (webcord, legcord,
+          #    Vencord, ...) get nothing and leave no stray ~/.config
+          #    directories behind — verified 2026-08-02.
+          #  - vscode: rewrites the color file *inside an installed copy* of the
+          #    NoctaliaTheme marketplace extension, at
+          #    ~/.vscode/extensions/noctalia.noctaliatheme-<version>/themes/;
+          #    it does not ship the extension, so modules/development.nix
+          #    installs it and "NoctaliaTheme" is then picked from the theme
+          #    palette.
           community_ids = [
             "discord"
             "vscode"
