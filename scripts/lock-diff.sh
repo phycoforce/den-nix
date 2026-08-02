@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # lock-diff: which ROOT inputs moved between two locks, keyed on the root
-# alias (never the node name: the node literally called "nixpkgs" in this lock
-# is nix-cachyos-kernel's own pin, the system's nixpkgs is the node the root
-# alias resolves to). Transitive nodes are prefixed "~".
+# alias - never the node name: the node called "nixpkgs" is nix-cachyos-
+# kernel's own pin, not the system's. Transitive nodes are prefixed "~".
 set -euo pipefail
 
 old="${1:-}"

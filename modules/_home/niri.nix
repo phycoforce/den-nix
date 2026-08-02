@@ -5,7 +5,6 @@
   ...
 }:
 let
-  # v5 IPC: `noctalia msg <command> [args]` (v4 was `noctalia-shell ipc call`).
   noctaliaMsg = "noctalia msg";
   starshipConfigPath = import ./starship-config-path.nix config;
   niriNoctaliaConfig = pkgs.writeText "niri-noctalia.kdl" ''

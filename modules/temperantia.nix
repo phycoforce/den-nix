@@ -6,8 +6,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Provides x86_64-v4 CachyOS kernel packages. Do not make it follow
-    # nixpkgs; its cache depends on its own pinned nixpkgs.
+    # Must NOT follow nixpkgs: its binary cache depends on its own pin.
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
 
     qylock = {

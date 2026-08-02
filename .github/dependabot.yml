@@ -1,20 +1,14 @@
 version: 2
 updates:
-  # flake.lock is NOT managed here anymore: .github/workflows/flake-update.yml
-  # (daily schedule + workflow_dispatch) bumps inputs individually, gates each
-  # candidate, holds only broken inputs, and lands proven locks on main with
-  # the closure already in cachix. Dependabot's nix ecosystem could only offer
-  # a weekly all-or-nothing group with no attribution and no security-advisory
-  # function (flake inputs are pseudo-versions; GitHub's table lists nix as
-  # version-updates-only), so removing it loses nothing and also silences its
-  # recurring dependency_file_content_not_changed errors on transitive nodes.
+  # No nix ecosystem here on purpose: it can only offer a weekly
+  # all-or-nothing group with no attribution and no security advisories, while
+  # .github/workflows/flake-update.yml gates inputs individually.
 
-  # Keep the SHA-pinned GitHub Actions in .github/workflows/ current. Dependabot
-  # bumps both the SHA and the trailing `# vN` comment. A cooldown delays brand-
-  # new tags so a compromised/rushed release has time to be caught first.
-  # Merging the weekly PR is a manual click after CI - automerge.yml was
-  # removed: it merged with GITHUB_TOKEN before its own gate finished (no
-  # branch protection) and its merge pushes could never trigger workflows.
+  # Bumps the SHA pins and their trailing `# vN` comments. The cooldown delays
+  # brand-new tags so a compromised or rushed release can be caught first.
+  # Merging the weekly PR stays a manual click after CI: an automerge workflow
+  # would merge with GITHUB_TOKEN before its own gate finishes, and main has
+  # no branch protection to backstop it.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

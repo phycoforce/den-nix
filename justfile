@@ -6,16 +6,10 @@ installed_flake := "/etc/nixos/den-desktop#temperantia"
 toplevel := ".#nixosConfigurations." + host + ".config.system.build.toplevel"
 upstream_ref := "nixos-unstable"
 
-# The three journeys (details in AGENTS.md):
-#   normal day:            just sync && just switch
-#   newer than the bot:    just update && just switch
-#   something is held:     read the gate's violation lines; just hydra-check <pkg>
-#
-# The gate itself lives in scripts/plan-gate.sh (single implementation, used
-# here and by .github/workflows/flake-update.yml). It judges a lock by facts -
-# substituter narinfo probes - never by hand-maintained package lists, and it
-# refuses to guess when the network is degraded (exit 2) instead of blaming
-# upstream.
+# The gate lives in scripts/plan-gate.sh (shared with
+# .github/workflows/flake-update.yml): it judges a lock by substituter narinfo
+# probes, never by hand-maintained package lists, and exits 2 rather than
+# blaming upstream when the network is degraded.
 
 default:
     @just --list
@@ -63,9 +57,8 @@ preflight:
     ./scripts/plan-gate.sh
     @just lock-age
 
-# On an up-to-date machine the warm gate sees an empty plan and proves
-# nothing; this plans against a throwaway empty store instead, so it judges
-# exactly what a fresh CI runner would (~2.5 GiB temp disk while it runs).
+# The warm gate proves nothing on an up-to-date machine (empty plan); this
+# plans against a throwaway store, as a fresh CI runner would (~2.5 GiB temp).
 [doc("Judge the current lock as CI's cold store sees it")]
 preflight-cold:
     ./scripts/plan-gate.sh --cold
@@ -74,13 +67,10 @@ preflight-cold:
 check-tip ref=upstream_ref:
     ./scripts/plan-gate.sh -- --override-input nixpkgs github:NixOS/nixpkgs/{{ref}}
 
-# Measure the expected-local set (unfree repacks, FHS envs, repo-owned flake
-# packages, per-config builds) and MERGE it into
-# scripts/plan-gate-baseline.txt. Measures against a cold store with the
-# repo's own cache excluded: the own cache only proves what a past run
-# pushed, and a warm store hides everything already realized - both would
-# shrink the measurement to a misleading delta (the 2026-08-02 failure mode:
-# a 9-entry warm baseline vs ~60 genuinely expected-local pnames in CI).
+# MERGES into scripts/plan-gate-baseline.txt (prune by hand). Cold and sans
+# the repo's own cache: a warm store hides what is already realized and the
+# own cache only proves what a past run pushed - either shrinks the
+# measurement to a misleading delta.
 [doc("Re-measure the tolerated expected-local set for the gate (cold, sans own cache)")]
 gate-baseline *args:
     ./scripts/plan-gate.sh --write-baseline --cold "$@"
@@ -109,12 +99,9 @@ sync:
       echo ">> sync: adopted origin/main ($behind commits) - if the updater landed a lock, it is already built and cached."
     fi
 
-# Default update path: sync first (a lock the CI updater already proved and
-# cached beats re-proving one locally), then batch-bump + gate, bisecting
-# per-input only on failure so a broken input holds back ONLY itself.
-# Gate-only by definition: everything non-trivial is proven substitutable,
-# tolerated derivations compile at switch time. For the old prove-it-builds
-# behaviour use `just update-build`.
+# Syncs first: a lock the CI updater already proved and cached beats
+# re-proving one locally. Bisects per-input only on failure, so a broken input
+# holds back ONLY itself. Gate-only - tolerated derivations compile at switch.
 [doc("Update inputs; a lock that fails the gate never survives")]
 update *inputs:
     @just sync
@@ -125,10 +112,8 @@ update-build *inputs:
     @just sync
     ./scripts/flake-update.sh --build "$@"
 
-# Loud transition stub, not an alias: a silent rename would hide that the
-# semantics changed. Delete once fingers have adjusted. (update-lock,
-# update-input and bisect-lock were removed outright - the first two were pure
-# redundancy, and `update` bisects automatically on failure.)
+# A stub, not an alias: aliasing would hide that the semantics changed.
+# Delete once fingers have adjusted.
 [doc("Renamed - fails loudly; use update / update-build")]
 update-verified *inputs:
     @echo "renamed: 'just update' = gate only (no local build); 'just update-build' = old behaviour." >&2
@@ -228,9 +213,8 @@ ci:
     gh run list --workflow flake-update.yml --limit 5
     gh run list --workflow ci.yml --branch main --limit 5
 
-# Answers can be STALE for renamed/aliased attrs (a dead job reports old
-# successes) - the narinfo probes in plan-gate are authoritative; use this to
-# distinguish "Hydra is merely behind, wait" from "failed upstream, hold".
+# Answers can be STALE for renamed/aliased attrs (a dead job keeps reporting
+# old successes); plan-gate's narinfo probes are authoritative.
 [doc("What Hydra did with a package on the unstable channel")]
 hydra-check +args:
     nix {{nix_flags}} run nixpkgs#hydra-check -- {{args}} --channel unstable

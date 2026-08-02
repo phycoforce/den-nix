@@ -28,8 +28,7 @@
       }:
       let
         krewRoot = "${config.home.homeDirectory}/.krew";
-        # Extra krew indexes to register (index name -> git URL). Plugins from a
-        # non-default index are referenced in krewPlugins as "<index>/<name>".
+        # Plugins from a non-default index are named "<index>/<name>" below.
         krewIndexes = {
           kopiur = "https://github.com/home-operations/kopiur.git";
         };
@@ -45,26 +44,23 @@
         kubectlKrew = pkgs.writeShellScriptBin "kubectl-krew" ''
           exec ${pkgs.krew}/bin/krew "$@"
         '';
-        # WinBox 4 ships a prebuilt Qt that only carries the xcb platform
-        # plugin, so it aborts under the session-wide QT_QPA_PLATFORM=wayland
-        # set by niri. Force xcb (via xwayland) for this program only.
+        # WinBox 4's prebuilt Qt only carries the xcb platform plugin, so it
+        # aborts under the session-wide QT_QPA_PLATFORM=wayland set by niri.
         winbox = pkgs.winbox.overrideAttrs (old: {
           postInstall = (old.postInstall or "") + ''
             wrapProgram "$out/bin/WinBox" --set QT_QPA_PLATFORM xcb
           '';
         });
 
-        # Marketplace id of the theme noctalia's `vscode` community template
-        # renders into; see the activation script below.
+        # Marketplace id of the theme noctalia's `vscode` template renders into.
         vscodeThemeExtension = "Noctalia.noctaliatheme";
       in
       {
         home.sessionPath = [
           "${krewRoot}/bin"
-          # mise activate (below) only updates PATH from interactive prompt
-          # hooks, so non-interactive shells (agents, editors, git hooks) see a
-          # stale or incomplete tool set. Shims re-resolve per invocation and
-          # act as the fallback; activate-mode paths still win interactively.
+          # mise activate only updates PATH from interactive prompt hooks, so
+          # non-interactive shells (agents, editors, git hooks) need the shims
+          # as a fallback; activate-mode paths still win interactively.
           "${config.home.homeDirectory}/.local/share/mise/shims"
         ];
         home.sessionVariables.KREW_ROOT = krewRoot;
@@ -106,26 +102,12 @@
           package = pkgs.vscode;
         };
 
-        # NoctaliaTheme is an ordinary marketplace extension. The `vscode`
-        # community template (enabled in _home/noctalia.nix) does not ship it —
-        # it only rewrites the color file inside an installed copy, at
-        # ~/.vscode/extensions/noctalia.noctaliatheme-<version>/themes/, and
-        # creates that path even when nothing is installed there. VSCode loads
-        # only the extensions registered in extensions.json, so what the
-        # template leaves behind on its own is a palette nothing reads. Install
-        # it the way VSCode does, imperatively and idempotently, in the manner
-        # of the krew block above; picking it is then one Ctrl+K Ctrl+T
-        # ("NoctaliaTheme") away, and settings.json stays hand-edited.
-        #
-        # Declaring it through programs.vscode instead would symlink the
-        # extension directory into the store, and the template could no longer
-        # write the palette into it; it would also drag every other extension
-        # (all installed by hand from the Extensions view) under Nix.
-        #
-        # The version in the template's output path is pinned upstream, so a
-        # NoctaliaTheme release VSCode auto-updates past leaves the template
-        # writing to a directory that no longer exists — the theme then freezes
-        # at its shipped colors until upstream bumps the template.
+        # noctalia's `vscode` template rewrites the color file inside an
+        # installed NoctaliaTheme extension (see _home/noctalia.nix), so the
+        # extension is installed imperatively: programs.vscode would symlink
+        # the extensions dir read-only into the store, leaving the template
+        # nowhere to write. The template's output path pins a version, so a
+        # VSCode auto-update past it freezes the theme's colors.
         home.activation.vscodeNoctaliaTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           extensions="${config.home.homeDirectory}/.vscode/extensions"
 
@@ -148,10 +130,8 @@
           enable = true;
           enableBashIntegration = true;
           package = pkgs.mise;
-          # nixpkgs' mise defaults node.compile to true, which forces a
-          # from-source node build (and fails here: no C/C++ toolchain). The
-          # prebuilt node tarball runs fine via nix-ld (see _nixos/nix-ld.nix,
-          # which already provides libstdc++), so use it instead.
+          # nixpkgs' mise defaults node.compile to true, which fails here (no
+          # C/C++ toolchain); the prebuilt tarball runs fine via nix-ld.
           globalConfig.settings.node.compile = false;
         };
 

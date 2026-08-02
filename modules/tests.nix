@@ -1,5 +1,4 @@
 # Cheap eval-time checks asserting Den aspect wiring; run via `nix flake check`.
-# Modeled on Den's templates/example/modules/tests.nix.
 { inputs, ... }:
 {
   perSystem =
@@ -18,13 +17,10 @@
       # user aspect provides.to-hosts.nixos cross-provider path (aaron-linux -> host)
       checks.aaron-provides-1password = checkCond "aaron-provides-1password" temperantia.programs._1password.enable;
 
-      # Consolidation invariants (2026-08): the update-pain root cause was
-      # multiple desynchronized nixpkgs universes. Keep them from creeping back.
-      #
-      # No root input may drag a private nixpkgs into the lock. Allowed nodes:
-      # the root's own (whatever alias it resolves to), nixpkgs-lib
-      # (flake-parts, lib-only), and nix-cachyos-kernel's pin (named plain
-      # "nixpkgs" here; intentional - its binary cache depends on it).
+      # Multiple desynchronized nixpkgs universes were the update-pain root
+      # cause: no root input may drag a private nixpkgs into the lock. Allowed
+      # nodes are the root's own, nixpkgs-lib (flake-parts, lib-only), and
+      # nix-cachyos-kernel's pin (plain "nixpkgs"; its cache depends on it).
       checks.lock-no-private-nixpkgs =
         let
           lock = builtins.fromJSON (builtins.readFile ../flake.lock);
@@ -40,29 +36,22 @@
         in
         checkCond "lock-no-private-nixpkgs" (offenders == [ ]);
 
-      # claude-code now comes from the ordinary nixpkgs (the master-tracking
-      # nixpkgs-agents input is gone); Opus 5 needs >= 2.1.219, so a nixpkgs
-      # hold/downgrade must not silently reintroduce an incompatible CLI.
+      # Opus 5 needs claude-code >= 2.1.219; a nixpkgs hold or downgrade must
+      # not silently reintroduce an incompatible CLI.
       checks.claude-code-floor = checkCond "claude-code-floor" (
         pkgs.lib.versionAtLeast temperantiaPkgs.claude-code.version "2.1.219"
       );
 
-      # noctalia must stay the nixpkgs v5 build (attr `noctalia`,
-      # Hydra-cached); the flake input exists only for its HM module, and a
-      # future import reshuffle restoring its own mkDefault package would
-      # silently resurrect the private-universe/local-compile problem. The
-      # nixpkgs attr is v5-only, so this also guards against a quickshell
-      # noctalia-shell 4.x comeback (v4 IPC syntax would break every keybind).
+      # The noctalia flake input exists only for its HM module; an import
+      # reshuffle restoring its own mkDefault package would resurrect the
+      # private-universe/local-compile problem, and (since the nixpkgs attr is
+      # v5-only) a v4 comeback whose IPC syntax breaks every keybind.
       checks.noctalia-package-from-nixpkgs = checkCond "noctalia-package-from-nixpkgs" (
         aaron-at-temperantia.programs.noctalia.package.outPath == temperantiaPkgs.noctalia.outPath
       );
 
-      # The client-side halves of those templates live away from the noctalia
-      # module: communication.nix creates the directory the discord template
-      # needs to render into at all, and development.nix installs the extension
-      # the vscode template rewrites. Dropping a community id here would leave
-      # both preparing for files nothing writes, with no eval or build error to
-      # show for it.
+      # communication.nix / development.nix hold the client-side halves (see
+      # _home/noctalia.nix); dropping an id here breaks nothing at build time.
       checks.noctalia-community-templates =
         let
           ids = aaron-at-temperantia.programs.noctalia.settings.theme.templates.community_ids;

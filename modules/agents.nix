@@ -9,13 +9,9 @@
     ];
 
     provides.to-hosts.nixos = {
-      # Force the subscription (Claude Pro/Max OAuth) login method system-wide
-      # as a backstop so claude-code never silently falls back to API billing.
-      # forceLoginMethod is only honored via managed settings
-      # (/etc/claude-code/managed-settings.json on Linux), not
-      # ~/.claude/settings.json. "claudeai" = subscription; "console" = API.
-      # The real fix for the daily re-login is the offline activation guard
-      # (agentOnline) below; this is defense-in-depth.
+      # forceLoginMethod is only honored via managed settings, not
+      # ~/.claude/settings.json. "claudeai" = subscription, "console" = API;
+      # a backstop against silently falling back to API billing.
       environment.etc."claude-code/managed-settings.json".text = builtins.toJSON {
         forceLoginMethod = "claudeai";
       };
@@ -34,29 +30,13 @@
         homeopsMcpSecretDomain2Path = homeopsMcp.secretDomain2;
         homeopsMcpMeminiApiKeyPath = homeopsMcp.meminiApiKey;
 
-        # ------------------------------------------------------------------
-        # Agent packages
-        # ------------------------------------------------------------------
-
-        # claude-code from the ordinary nixpkgs (unfree battery above allows
-        # it). The separate master-tracking nixpkgs-agents input was retired
-        # 2026-08-01: nixos-unstable had caught up (both carried 2.1.220), and
-        # a whole extra ungated nixpkgs universe per CLI is exactly the
-        # update-pain shape this repo is rid of. tests.nix asserts the version
-        # stays >= 2.1.219 (Opus 5 floor) so a silent downgrade cannot land.
         claudeCode = pkgs.claude-code;
         claudeBin = "${claudeCode}/bin/claude";
         opencodeBin = "${pkgs.opencode}/bin/opencode";
 
-        # ------------------------------------------------------------------
-        # Shared agent environment
-        #
-        # Every agent CLI launches through a thin wrapper that sources this
-        # loader, so MCP secrets stay out of the Nix store and out of the
-        # broad user session environment while still working from terminal
-        # and desktop launches. Activation steps source it too, so the values
-        # a wrapper sees and the values baked into agent config agree.
-        # ------------------------------------------------------------------
+        # Sourced by every agent wrapper and by the activation steps below, so
+        # MCP secrets stay out of the Nix store and out of the session
+        # environment while wrappers and generated config still agree.
         agentEnvLoader = pkgs.writeText "agent-mcp-env" ''
           if [ -r ${lib.escapeShellArg homeopsMcpSecretDomainPath} ]; then
             export HOMEOPS_SECRET_DOMAIN="$(${pkgs.coreutils}/bin/tr -d '\r\n' < ${lib.escapeShellArg homeopsMcpSecretDomainPath})"
@@ -107,24 +87,15 @@
         # Node on PATH for agent plugin/hook runtimes that shell out to it.
         agentRuntimePath = lib.makeBinPath [ pkgs.nodejs_22 ];
 
-        # DNS resolution check, used to gate activation steps that launch an
-        # agent CLI. Boot-time home-manager activation runs before
-        # network-online.target; launching the claude CLI while DNS is down
-        # makes its short-lived (~7h) OAuth token refresh fail, which silently
-        # drops the session to API billing and forces a daily re-login. Gating
-        # on this makes those steps no-op when offline instead of clobbering
-        # ~/.claude.json.
+        # Boot-time HM activation runs before network-online.target; launching
+        # the claude CLI with DNS down fails its OAuth refresh and clobbers
+        # ~/.claude.json (daily re-login, silent API billing). Gate on this.
         agentOnline = host: "${pkgs.getent}/bin/getent hosts ${host} >/dev/null 2>&1";
 
-        # ------------------------------------------------------------------
-        # Local MCP server commands
-        # ------------------------------------------------------------------
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
-        # nixpkgs playwright-mcp defaults to downloading "chrome-for-testing" into its
-        # read-only PLAYWRIGHT_BROWSERS_PATH (a /nix/store path), which fails. Pin it to the
-        # version-matched Chromium that ships in pkgs.playwright-driver.browsers via
-        # --executable-path so it never tries to provision a browser at runtime. Scratch
-        # output goes to the XDG cache, never the project directory.
+        # playwright-mcp otherwise tries to download chrome-for-testing into its
+        # read-only /nix/store PLAYWRIGHT_BROWSERS_PATH; point it at the
+        # version-matched Chromium already in playwright-driver.browsers.
         playwrightMcpWrapped = pkgs.writeShellScriptBin "playwright-mcp-nix" ''
           set -eu
           browsers='${pkgs.playwright-driver.browsers}'
@@ -139,25 +110,16 @@
         '';
         playwrightMcpCommand = lib.getExe playwrightMcpWrapped;
 
-        # ------------------------------------------------------------------
-        # MCP registry (agent-agnostic)
-        #
-        # Declare each MCP server once; the per-agent adapters below render it
-        # into whatever shape that agent wants. Adding a server, or pointing an
-        # existing one somewhere else, is a single edit here.
-        #
-        #   transport  "http" (remote URL) or "stdio" (local command)
-        #   command    stdio argv, as a list
-        #   url        remote URL as a *shell* string, expanded at activation
-        #              time from variables exported by the env loader
-        #   urlEnv     the same URL in OpenCode's `{env:VAR}` template syntax
-        #   needs      loader variables that must be non-empty, otherwise the
-        #              server is skipped with a warning instead of registered
-        #              with a half-resolved URL
-        #   headers    extra HTTP headers, OpenCode template syntax
-        #              (OpenCode only: `claude mcp add` bakes literal values)
-        #   agents     front-ends that get this server; default is all of them
-        # ------------------------------------------------------------------
+        # Agent-agnostic MCP registry; the adapters below render each entry
+        # into per-agent shape. Fields:
+        #   transport  "http" or "stdio"
+        #   command    stdio argv list
+        #   url        shell string, expanded at activation from loader vars
+        #   urlEnv     same URL in OpenCode's `{env:VAR}` syntax
+        #   needs      loader vars that must be non-empty, else skip with a
+        #              warning rather than register a half-resolved URL
+        #   headers    OpenCode only (`claude mcp add` bakes literal values)
+        #   agents     front-ends to register with; default all
         allAgents = [
           "claude-code"
           "opencode"
@@ -176,9 +138,8 @@
             urlEnv = "https://konflate.{env:HOMEOPS_SECRET_DOMAIN_2}/mcp";
           };
           memini = {
-            # Claude Code gets Memini from the plugin below (which brings its
-            # own MCP server as plugin:memini:memini), so only front-ends
-            # without that plugin register the bare server here.
+            # Claude Code gets Memini from the plugin below (which ships its
+            # own MCP server), so only other front-ends register it here.
             agents = [ "opencode" ];
             transport = "http";
             needs = [
@@ -204,13 +165,8 @@
         mcpServersFor =
           agent: lib.filterAttrs (_: srv: lib.elem agent (srv.agents or allAgents)) mcpServers;
 
-        # ------------------------------------------------------------------
-        # Plugin registry (agent-agnostic)
-        #
-        # Plugins are installed imperatively by the agent's own CLI, so this is
-        # an install-if-missing list rather than declarative state. Front-ends
-        # without a plugin CLI ignore it.
-        # ------------------------------------------------------------------
+        # Plugins are installed by the agent's own CLI, so this is an
+        # install-if-missing list rather than declarative state.
         agentPlugins = [
           {
             id = "memini@memini";
@@ -219,15 +175,12 @@
           }
         ];
 
-        # ------------------------------------------------------------------
-        # Wrappers: one shape for every agent
-        # ------------------------------------------------------------------
         mkAgentWrapper =
           {
-            name, # command name on PATH
-            program, # absolute path to the real binary
-            env ? { }, # extra environment for this agent
-            preExec ? "", # shell run before exec (argument dispatch, ...)
+            name,
+            program,
+            env ? { },
+            preExec ? "",
           }:
           pkgs.writeShellScriptBin name ''
             ${sourceAgentEnv}
@@ -271,12 +224,7 @@
           exec ${pkgs.bun}/bin/bun install --cwd "$opencode_config_dir"
         '';
 
-        # ------------------------------------------------------------------
-        # Adapter: Claude Code
-        #
-        # Registers MCP servers with `claude mcp add --scope user`, so the
-        # servers follow the user across every project.
-        # ------------------------------------------------------------------
+        # `--scope user` so the servers follow the user across every project.
         claudeMcpBlock =
           name: srv:
           let
@@ -313,11 +261,7 @@
           fi
         '';
 
-        # ------------------------------------------------------------------
-        # Adapter: OpenCode
-        #
-        # Fully declarative: the whole MCP block is a generated config file.
-        # ------------------------------------------------------------------
+        # OpenCode is fully declarative: the MCP block is a generated file.
         opencodeMcpConfig = lib.mapAttrs (
           _: srv:
           if srv.transport == "stdio" then
@@ -374,12 +318,9 @@
               fi
             '';
 
-        # Claude Code writes runtime state (theme, model, /config toggles) back into
-        # ~/.claude/settings.json, so it cannot be a read-only Nix-store symlink. Merge
-        # only the keys we want to own with jq and leave the rest mutable. Empty
-        # attribution strings drop the "Co-Authored-By: Claude" commit trailer and the
-        # "Generated with Claude Code" PR line (the non-deprecated successor to
-        # includeCoAuthoredBy).
+        # Claude Code writes runtime state back into ~/.claude/settings.json, so
+        # it cannot be a store symlink: merge only our keys and leave the rest
+        # mutable. Empty attribution strings drop the commit/PR credit lines.
         home.activation.agentSettingsClaudeCode = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if [ -n "''${DRY_RUN_CMD:-}" ]; then
             echo "Skipping Claude Code settings.json attribution merge during dry run"

@@ -1,6 +1,5 @@
-# Single source of truth for HomeOps MCP secret locations.
-# Producer: modules/foundation.nix (opnix writes the secrets here).
-# Consumer: modules/agents.nix (env loader and MCP activation scripts).
+# Single source of truth for HomeOps MCP secret locations: written by
+# modules/foundation.nix (opnix), read by modules/agents.nix.
 config: rec {
   configDir = "${config.xdg.configHome}/homeops-mcp";
   secretDomain = "${configDir}/secret-domain";

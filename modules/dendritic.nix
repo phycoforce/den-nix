@@ -23,8 +23,7 @@
       ];
     };
 
-    # Core framework inputs only. Concern-specific inputs are declared via
-    # flake-file.inputs in the aspect module that consumes them.
+    # Core framework inputs only; concern inputs live in their aspect module.
     inputs = {
       nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 

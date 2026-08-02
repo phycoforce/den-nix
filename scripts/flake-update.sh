@@ -2,21 +2,18 @@
 # flake-update: bump inputs so that a lock that fails the gate never survives,
 # and a broken input holds back ONLY itself.
 #
-# Shape: batch-first (one bump, one gate - the cheap path on a healthy day),
-# then per-input bisect only when the batch fails, then one grouped retry of
-# the held set (coupled inputs - e.g. den + flake-file - would otherwise
-# deadlock individually forever). Waiting between retries must never widen the
-# blast radius: history shows a bare `nix flake update` retried after two days
-# moved six inputs instead of one and failed harder.
+# Shape: batch-first (the cheap path on a healthy day), per-input bisect only
+# when the batch fails, then one grouped retry of the held set - coupled
+# inputs (e.g. den + flake-file) would otherwise deadlock individually.
 #
 # Modes:
 #   flake-update.sh [inputs...]            local: plan-gate + write-flake regen
 #   flake-update.sh --ci [inputs...]       CI: + flake check, fmt-check, lint;
 #                                          emits GITHUB_OUTPUT + summary files
-#   flake-update.sh --build [inputs...]    local + one real toplevel build at
-#                                          the end (the old update-verified
-#                                          protection: buildEnv collisions,
-#                                          initrd assembly, FOD hash drift)
+#   flake-update.sh --build [inputs...]    local + one real toplevel build,
+#                                          which catches what the gate cannot:
+#                                          buildEnv collisions, initrd
+#                                          assembly, FOD hash drift
 #
 # Exit: 0 = done (possibly with holds; holds are reported, not fatal),
 #       1 = nothing could be verified / eval broke, 2 = cannot judge (network).
@@ -40,17 +37,16 @@ done
 TOPLEVEL="${TOPLEVEL:-.#nixosConfigurations.temperantia.config.system.build.toplevel}"
 NIX_FLAGS=(--accept-flake-config)
 
-# CI runs this with GITHUB_TOKEN wired into nix; locally we borrow gh's token.
-# Unauthenticated GitHub API = 60 req/hr/IP, and `nix flake update` on hitting
-# the limit warns, keeps the CACHED rev, exits 0 and leaves the lock untouched
-# - a silent no-op that reads as "already current". Guarded below too.
+# CI wires GITHUB_TOKEN into nix; locally borrow gh's token. Unauthenticated
+# GitHub API is 60 req/hr/IP, and `nix flake update` on hitting the limit
+# keeps the CACHED rev and exits 0 - a no-op that reads as "already current".
 if [ "$MODE" = "local" ] && command -v gh >/dev/null 2>&1 && gh auth token >/dev/null 2>&1; then
   export NIX_CONFIG="access-tokens = github.com=$(gh auth token)
 ${NIX_CONFIG:-}"
 fi
 
 # Requested inputs must be real root inputs: `nix flake update <unknown>` only
-# warns, and an attacker-controlled dispatch input must not smuggle flags.
+# warns, and a dispatch-supplied name must not smuggle flags.
 mapfile -t ALL_INPUTS < <(jq -r '.nodes.root.inputs | keys[]' flake.lock)
 TARGETS=()
 if [ "$#" -gt 0 ]; then
@@ -95,14 +91,13 @@ gate() { # gate <label>; uses the CURRENT worktree lock
   local label="$1"
   echo ">> gate [$label]: plan-gate"
   "$SCRIPT_DIR/plan-gate.sh" || return "$?"
-  # flake.nix is generated; a den/flake-file/nixpkgs bump can change codegen or
-  # the embedded nixfmt. Regenerate NOW so the change rides in the same commit
-  # and check-generated never goes red on main.
+  # flake.nix is generated and a bump can change its codegen: regenerate now so
+  # the change rides in the same commit and check-generated stays green.
   echo ">> gate [$label]: write-flake regeneration"
   nix run .#write-flake "${NIX_FLAGS[@]}" >/dev/null || return 1
   if [ "$MODE" = "ci" ]; then
-    # This lock lands on main via a GITHUB_TOKEN push that can never trigger
-    # ci.yml - so every gate ci.yml would have run must run HERE or nowhere.
+    # This lock lands on main via a GITHUB_TOKEN push, which cannot trigger
+    # ci.yml - so every gate ci.yml would run must run HERE or nowhere.
     echo ">> gate [$label]: nix flake check"
     nix flake check "${NIX_FLAGS[@]}" || return 1
     echo ">> gate [$label]: fmt-check"

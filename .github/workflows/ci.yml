@@ -8,8 +8,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # Cancel superseded runs on PR branches, but let main runs finish (they warm
-  # caches / produce the authoritative build).
+  # Let main runs finish: they warm caches / produce the authoritative build.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -84,8 +83,7 @@ jobs:
           use-flakehub: false
       - name: Flake check
         run: nix flake check --accept-flake-config
-      # Cheap eval-only gate for ordinary PRs. On push / Dependabot / dispatch the
-      # real `build` job runs and subsumes this, so skip it there.
+      # Ordinary PRs only: elsewhere the real `build` job subsumes this.
       - name: Dry-run host build
         if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'dependabot/')
         run: nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --dry-run --accept-flake-config
@@ -95,9 +93,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    # Real build only where a cache miss / breakage can appear: pushes to main,
-    # manual runs, and Dependabot lock/action bumps. Ordinary PRs keep the fast
-    # dry-run gate in the eval job.
+    # Real build only where a cache miss / breakage can appear; ordinary PRs
+    # keep the eval job's dry-run instead.
     if: >-
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
@@ -106,8 +103,8 @@ jobs:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
-          # Keep swap (OOM insurance for a cold from-source kernel link) and the
-          # tool cache; reclaim the big SDK/runtime directories.
+          # Keep swap (OOM insurance for a cold from-source kernel link) and
+          # the tool cache; reclaim the big SDK/runtime directories.
           tool-cache: false
           swap-storage: false
           android: true
@@ -123,33 +120,28 @@ jobs:
         uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          # This build is ~95% substituter fetch (multi-GB closure), not compile,
-          # so raise download concurrency to shorten the network-bound wall time.
+          # ~95% substituter fetch, not compile: network-bound, so raise
+          # download concurrency.
           extra_nix_config: |
             http-connections = 50
             max-substitution-jobs = 32
-      # Push the built delta for HUMAN pushes to main (config changes). Lock
-      # bumps are warmed by flake-update.yml instead, which does its own build
-      # and explicit push - its GITHUB_TOKEN commits cannot trigger this
-      # workflow at all (GitHub suppresses workflow runs for token-authored
-      # pushes), so nothing here runs for automated lock updates by design.
-      # cachix-action uses an internal post-build-hook, so only paths BUILT
-      # here (not the nixpkgs paths it fetches) are pushed -> stays under the
-      # 5GB free tier. Push only on trusted main builds; PRs skip it.
+      # Trusted main builds only (PRs skip). Lock bumps never reach here:
+      # GitHub suppresses workflow runs for GITHUB_TOKEN pushes, so
+      # flake-update.yml warms those itself. cachix-action pushes via a
+      # post-build-hook, so only paths BUILT here go up -> under the 5GB tier.
       - name: Cachix
         uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
         with:
           name: phycoforce
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: ${{ github.ref != 'refs/heads/main' }}
-      # No magic-nix-cache here: the closure is multi-GB, GitHub's Actions cache
-      # is 10GB-capped, and the reverse-engineered cache client rate-limits on a
-      # build this size. The real substituters serve the paths.
+      # No magic-nix-cache: multi-GB closure vs a 10GB-capped Actions cache
+      # that rate-limits on a build this size; the substituters serve it.
       - name: Build host toplevel (real build)
         run: nix build .#nixosConfigurations.temperantia.config.system.build.toplevel --accept-flake-config --print-build-logs --no-link
 
-  # Single stable status check for branch protection. `build` is intentionally
-  # skipped on ordinary PRs, so require THIS job (not `build`) as the gate.
+  # Branch protection gate: `build` is skipped on ordinary PRs, so require
+  # THIS job instead - it is the only always-present status check.
   CI:
     name: CI
     needs: [lint, generated, eval, build]

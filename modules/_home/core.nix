@@ -97,11 +97,9 @@ in
       enable = true;
       createDirectories = true;
     };
-    # No declarative xdg.mimeApps block: it only ever existed because an
-    # installed chromium outranked firefox for the web schemes. With chromium
-    # gone the apps' own .desktop registrations resolve correctly on their own,
-    # and the pinned list (plus the forced mimeapps.list) fought the desktop
-    # apps that write that file at runtime.
+    # No declarative xdg.mimeApps block on purpose: the apps' own .desktop
+    # registrations resolve correctly, and a forced mimeapps.list fights the
+    # desktop apps that write that file at runtime.
   };
 
   programs.git = {
