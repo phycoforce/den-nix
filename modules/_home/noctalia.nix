@@ -81,9 +81,13 @@ in
       };
 
       theme = {
-        # Fixed built-in palette; wallpaper-derived colors stay off.
+        # Colors are derived from the current wallpaper. "faithful" keeps the
+        # extracted hues close to the source image rather than re-mapping them
+        # onto a tonal scheme. `builtin` still names the fallback palette used
+        # when source is switched back to "builtin".
         builtin = "Catppuccin";
-        source = "builtin";
+        source = "wallpaper";
+        wallpaper_scheme = "faithful";
         templates = {
           #  - niri: regenerates ~/.config/niri/noctalia.kdl (accent colors),
           #    which niri/config.kdl includes; seeded by _home/niri.nix.
