@@ -188,9 +188,14 @@ in
           Mod+F { fullscreen-window; }
           Mod+W { toggle-column-tabbed-display; }
 
-          Ctrl+Shift+1 { screenshot; }
-          Ctrl+Shift+2 { screenshot-screen; }
-          Ctrl+Shift+3 { screenshot-window; }
+          // Screenshots go through Noctalia rather than niri's built-in
+          // screenshot actions, so these and the bar's screenshot widget are
+          // one system (settings in _home/noctalia.nix, shell.screenshot).
+          // `screenshot-fullscreen` also takes `pick` (choose an output) and
+          // `all`; there is no window-capture command, so the old
+          // Ctrl+Shift+3 screenshot-window bind was dropped.
+          Ctrl+Shift+1 { spawn-sh "${noctaliaMsg} screenshot-region"; }
+          Ctrl+Shift+2 { spawn-sh "${noctaliaMsg} screenshot-fullscreen"; }
 
           Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
 
@@ -218,6 +223,8 @@ in
 
     "niri/cfg/misc.kdl".text = ''
       prefer-no-csd
+      // niri's own screenshot actions are unbound (Noctalia captures instead);
+      // null keeps them from writing files should anything still trigger them.
       screenshot-path null
 
       environment {

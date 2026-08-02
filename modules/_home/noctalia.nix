@@ -6,11 +6,22 @@ let
   # extra image in by hand still works, it is just not tracked.
   wallpaperRelPath = "Pictures/Wallpapers";
   wallpaperDir = "${config.home.homeDirectory}/${wallpaperRelPath}";
+
+  # Capture target for shell.screenshot below. The .keep file exists only so
+  # Home Manager materializes the directory — noctalia is not documented to
+  # create a missing save directory, and a capture that silently goes nowhere
+  # is a bad way to find out.
+  screenshotRelPath = "Pictures/Screenshots";
+  screenshotDir = "${config.home.homeDirectory}/${screenshotRelPath}";
 in
 {
-  home.file.${wallpaperRelPath} = {
-    source = ../../wallpapers;
-    recursive = true;
+  home.file = {
+    ${wallpaperRelPath} = {
+      source = ../../wallpapers;
+      recursive = true;
+    };
+
+    "${screenshotRelPath}/.keep".text = "";
   };
 
   # Noctalia v5 (C++ rewrite). Deliberately close to upstream defaults: the
@@ -41,6 +52,7 @@ in
         start = [
           "launcher"
           "wallpaper"
+          "screenshot"
           "workspaces"
           "ram"
         ];
@@ -91,6 +103,20 @@ in
         # Rounded overlay corners on every output (upstream default `size`
         # of 32 kept); purely cosmetic, drawn by the shell layer.
         screen_corners.enabled = true;
+
+        # Captures run through the shell (wlr-screencopy; no grim/slurp), so
+        # the bar widget and the Ctrl+Shift+1/2 binds in _home/niri.nix are one
+        # system with one set of settings and the wallpaper-derived theming.
+        # niri's built-in screenshot actions are no longer bound — the cost is
+        # that captures now need noctalia running. `filename_pattern` is left
+        # at upstream's default until the naming is seen in practice.
+        screenshot = {
+          directory = screenshotDir;
+          save_to_file = true;
+          # Both at once — niri's screenshot-path could only do one or other.
+          copy_to_clipboard = true;
+        };
+
         session.grid = true;
       };
 
