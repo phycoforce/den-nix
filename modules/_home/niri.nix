@@ -5,7 +5,8 @@
   ...
 }:
 let
-  noctaliaIpc = "noctalia-shell ipc call";
+  # v5 IPC: `noctalia msg <command> [args]` (v4 was `noctalia-shell ipc call`).
+  noctaliaMsg = "noctalia msg";
   starshipConfigPath = import ./starship-config-path.nix config;
   niriNoctaliaConfig = pkgs.writeText "niri-noctalia.kdl" ''
     layout {
@@ -60,7 +61,7 @@ in
 
     "niri/cfg/autostart.kdl".text = ''
       spawn-at-startup "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
-      spawn-at-startup "noctalia-shell"
+      spawn-at-startup "noctalia"
     '';
 
     "niri/cfg/display.kdl".text = ''
@@ -93,16 +94,16 @@ in
           Mod+Shift+Escape { show-hotkey-overlay; }
 
           Mod+Return { spawn "ghostty"; }
-          Mod+Ctrl+Return { spawn-sh "${noctaliaIpc} launcher toggle"; }
+          Mod+Ctrl+Return { spawn-sh "${noctaliaMsg} panel-toggle launcher"; }
           Mod+B { spawn "firefox"; }
-          Mod+Alt+L { spawn-sh "${noctaliaIpc} lockScreen lock"; }
-          Mod+Shift+Q { spawn-sh "${noctaliaIpc} sessionMenu toggle"; }
+          Mod+Alt+L { spawn-sh "${noctaliaMsg} session lock"; }
+          Mod+Shift+Q { spawn-sh "${noctaliaMsg} panel-toggle session"; }
           Mod+E { spawn "nautilus"; }
 
-          XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "${noctaliaIpc} volume increase"; }
-          XF86AudioLowerVolume allow-when-locked=true { spawn-sh "${noctaliaIpc} volume decrease"; }
-          XF86AudioMute allow-when-locked=true { spawn-sh "${noctaliaIpc} volume muteOutput"; }
-          XF86AudioMicMute allow-when-locked=true { spawn-sh "${noctaliaIpc} volume muteInput"; }
+          XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "${noctaliaMsg} volume-up"; }
+          XF86AudioLowerVolume allow-when-locked=true { spawn-sh "${noctaliaMsg} volume-down"; }
+          XF86AudioMute allow-when-locked=true { spawn-sh "${noctaliaMsg} volume-mute"; }
+          XF86AudioMicMute allow-when-locked=true { spawn-sh "${noctaliaMsg} mic-mute"; }
 
           Mod+Q { close-window; }
 

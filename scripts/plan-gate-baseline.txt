@@ -4,6 +4,7 @@
 # written here. Generated 2026-08-01 against e2587caef70c.
 gamescope
 mise-bash-completion.bash
+noctalia-config
 plexamp
 spotify
 steam

@@ -47,13 +47,14 @@
         pkgs.lib.versionAtLeast temperantiaPkgs.claude-code.version "2.1.219"
       );
 
-      # noctalia-shell must stay the nixpkgs build (Hydra-cached); the flake
-      # input exists only for its HM module, and a future import reshuffle
-      # restoring its own mkDefault package would silently resurrect the
-      # private-universe problem.
+      # noctalia must stay the nixpkgs v5 build (attr `noctalia`,
+      # Hydra-cached); the flake input exists only for its HM module, and a
+      # future import reshuffle restoring its own mkDefault package would
+      # silently resurrect the private-universe/local-compile problem. The
+      # nixpkgs attr is v5-only, so this also guards against a quickshell
+      # noctalia-shell 4.x comeback (v4 IPC syntax would break every keybind).
       checks.noctalia-package-from-nixpkgs = checkCond "noctalia-package-from-nixpkgs" (
-        aaron-at-temperantia.programs.noctalia-shell.package.outPath
-        == temperantiaPkgs.noctalia-shell.outPath
+        aaron-at-temperantia.programs.noctalia.package.outPath == temperantiaPkgs.noctalia.outPath
       );
     };
 }

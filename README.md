@@ -19,7 +19,7 @@ Manager, and declarative disk provisioning through disko.
 - GPU drivers: AMDGPU plus NVIDIA with the NVIDIA open kernel module
 - Display manager: SDDM on X11, defaulting to the `niri` session
 - Desktop: Niri
-- Shell: Noctalia Shell v4, `git+https://github.com/noctalia-dev/noctalia?ref=legacy-v4`
+- Shell: Noctalia Shell v5 (C++), `git+https://github.com/noctalia-dev/noctalia?ref=main`
 - Extra disk: keep existing Btrfs filesystem labeled `SSD2`, mounted at `/mnt/SSD2`
 
 ## Layout
@@ -239,7 +239,7 @@ Niri should autostart:
 
 - `xwayland-satellite`
 - KDE polkit agent
-- `noctalia-shell`
+- `noctalia`
 
 Useful checks after login:
 
@@ -382,4 +382,4 @@ nh os switch /etc/nixos/den-desktop
 - `flake.nix` is generated. Edit `modules/dendritic.nix`, then run `nix run .#write-flake`.
 - The root filesystem is unencrypted. If you later want encryption back, add LUKS in a separate iteration.
 - `SSD2` is intentionally outside disko and is mounted by label with `nofail`.
-- The Noctalia v4 settings are intentionally light. The Catppuccin-like colors are declarative, while most shell behavior is left at upstream defaults.
+- The Noctalia v5 settings are intentionally upstream defaults plus keybinds: `_home/noctalia.nix` only enables ddcutil brightness and the niri/starship theme templates; the v4 Catppuccin theming was retired (see `modules/_archive/noctalia-v4/`).
