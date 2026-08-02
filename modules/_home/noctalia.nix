@@ -66,6 +66,11 @@ in
       # IP geolocation for weather/night-light instead of a fixed address.
       location.auto_locate = true;
 
+      # The media/"Now Playing" OSD fires on every track change, which is
+      # constant noise while music plays; the bar's media widget already shows
+      # the same state. Other kinds (volume, brightness, ...) stay on.
+      osd.kinds.media = false;
+
       shell = {
         # WAN IP in the network panel (Settings > Security > Network).
         external_ip_enabled = true;
@@ -73,10 +78,19 @@ in
         # polkit-kde-agent autostart was dropped from _home/niri.nix — only
         # one agent can register per session.
         polkit_agent = true;
+        launcher = {
+          # Icon grid instead of the default vertical list, with the tighter
+          # row height for the list/result views that remain.
+          app_grid = true;
+          compact = true;
+        };
         panel = {
           session_placement = "floating";
           session_position = "center";
         };
+        # Rounded overlay corners on every output (upstream default `size`
+        # of 32 kept); purely cosmetic, drawn by the shell layer.
+        screen_corners.enabled = true;
         session.grid = true;
       };
 
