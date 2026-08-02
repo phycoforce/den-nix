@@ -59,21 +59,16 @@
 
       # The client-side halves of those templates live away from the noctalia
       # module: communication.nix creates the directory the discord template
-      # needs to render into at all, development.nix installs the extension the
-      # vscode template rewrites, and browsers.nix installs the Zen whose
-      # profile the zen-browser template patches. Dropping a community id here
-      # would leave each of them preparing for files nothing writes, with no
-      # eval or build error to show for it.
+      # needs to render into at all, and development.nix installs the extension
+      # the vscode template rewrites. Dropping a community id here would leave
+      # both preparing for files nothing writes, with no eval or build error to
+      # show for it.
       checks.noctalia-community-templates =
         let
           ids = aaron-at-temperantia.programs.noctalia.settings.theme.templates.community_ids;
         in
         checkCond "noctalia-community-templates" (
-          builtins.all (id: builtins.elem id ids) [
-            "discord"
-            "vscode"
-            "zen-browser"
-          ]
+          builtins.elem "discord" ids && builtins.elem "vscode" ids
         );
     };
 }

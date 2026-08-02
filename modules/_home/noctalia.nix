@@ -165,20 +165,9 @@ in
           #    it does not ship the extension, so modules/development.nix
           #    installs it and "NoctaliaTheme" is then picked from the theme
           #    palette.
-          #  - zen-browser: renders zen-user{Chrome,Content}.css into
-          #    ~/.cache/noctalia/zen-browser and then runs the template's
-          #    apply.sh, which walks every profile under ~/.config/zen (and
-          #    ~/.zen) that already has a prefs.js, creates chrome/ plus
-          #    user.js, @imports the two cache files, and sets
-          #    toolkit.legacyUserProfileCustomizations.stylesheets and
-          #    devtools.chrome.enabled. So it only reaches profiles Zen has
-          #    already created — a never-launched Zen gets nothing, and the
-          #    prefs land at next browser start. Zen itself comes from
-          #    modules/browsers.nix; firefox is deliberately untouched.
           community_ids = [
             "discord"
             "vscode"
-            "zen-browser"
           ];
         };
       };
