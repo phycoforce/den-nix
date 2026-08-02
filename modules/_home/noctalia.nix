@@ -150,9 +150,18 @@ in
             "niri"
             "starship"
           ];
-          # vscode: writes a Noctalia theme extension into ~/.vscode;
-          # select "Noctalia Theme" once inside VSCode to activate it.
-          community_ids = [ "vscode" ];
+          #  - discord: writes the midnight/material/system24 CSS variants into
+          #    ~/.config/vesktop/themes (vesktop is the client installed by
+          #    modules/communication.nix); tick one under Vesktop > Settings >
+          #    Themes to activate it. Unlike the vscode entries below, these
+          #    carry no `requires_path`, so the template also drops copies in
+          #    the config dirs of the other Discord clients it knows about.
+          #  - vscode: writes a Noctalia theme extension into ~/.vscode;
+          #    select "Noctalia Theme" once inside VSCode to activate it.
+          community_ids = [
+            "discord"
+            "vscode"
+          ];
         };
       };
     };
