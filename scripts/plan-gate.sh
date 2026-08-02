@@ -14,13 +14,32 @@
 #      preferLocalBuild/allowSubstitutes=false (writeText, buildEnv, wrappers)
 #      land there even when caches serve them, and nix can print the same path
 #      in BOTH sections. So section membership is only the candidate set.
-#   2. Drop local-by-policy derivations (facts from `nix derivation show`).
+#   2. Drop local-by-policy derivations and fixed-output derivations (facts
+#      from `nix derivation show`, schema v4: policy flags live in plain env
+#      OR the top-level structuredAttrs object; a FOD carries an output hash
+#      and no output path - it is a download, not a compile).
 #   3. Probe every remaining output against every substituter (narinfo).
 #      A path any substituter serves is never a violation.
 #   4. What survives is an unserved local build: BLOCK-listed pnames fail
 #      always (expensive; never tolerate), baseline pnames are tolerated
 #      (measured expected-local set, see --write-baseline), anything else is
 #      a violation - the "some OTHER program has a problem" case, made loud.
+#
+# Modes and knobs:
+#   --cold                 plan against a throwaway empty store, so the gate
+#                          sees what a fresh CI runner sees instead of the
+#                          delta against this machine's warm store (~2.5 GiB
+#                          of temp disk while it runs; cleaned on exit).
+#   --write-baseline       re-measure the expected-local set. Measurement
+#                          excludes the repo's OWN cache: it serves whatever a
+#                          past run pushed, but a candidate lock re-keys those
+#                          paths, so "own cache serves it today" proves
+#                          nothing about tomorrow. Run it --cold or the warm
+#                          store hides most of the set. Results MERGE into the
+#                          existing baseline (an incremental cache means any
+#                          single measurement only sees a delta).
+#   PLAN_GATE_STORE=<path> use this store instead of the default (what --cold
+#                          sets, pointed at a temp dir).
 #
 # Exit codes: 0 = safe (or nothing to prove), 1 = violations / eval failure /
 # unparsable plan, 2 = cannot judge (substituters unreachable, rate-limited,
@@ -30,7 +49,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOPLEVEL="${TOPLEVEL:-.#nixosConfigurations.temperantia.config.system.build.toplevel}"
 BASELINE="${PLAN_GATE_BASELINE:-$SCRIPT_DIR/plan-gate-baseline.txt}"
-MAX_BUILDS="${PLAN_GATE_MAX_BUILDS:-500}"
+# Cap calibrated against a COLD plan (~600 candidate derivations, nearly all
+# config artifacts), not a warm delta; the offline signature this guards
+# against is thousands of builds plus bootstrap seeds.
+MAX_BUILDS="${PLAN_GATE_MAX_BUILDS:-2000}"
 
 # Must mirror the flake's nixConfig + the default cache. Checked cheaply up
 # front; an unreachable cache makes "no one serves X" unknowable, so the gate
@@ -43,20 +65,37 @@ SUBSTITUTERS=(
   "https://nix-community.cachix.org"
   "https://phycoforce.cachix.org"
 )
+# The cache this repo's own CI pushes to - excluded while measuring the
+# baseline (see --write-baseline above), authoritative everywhere else.
+OWN_CACHE="https://phycoforce.cachix.org"
 
 # Per-configuration artifacts: generated from THIS config, so no public cache
-# can ever serve them, and their build cost is trivial (file writes and
-# symlink farms). Matching pnames are dropped without consulting the baseline,
-# so adding a systemd unit or renaming the host never trips the gate. Keep the
-# patterns structural - a real package must never match.
-CONFIG_ARTIFACT_RE='^(unit-.+[.](service|timer|socket|target|mount|automount|slice|path|scope)|initrd-|system-path$|home-manager-path$|home-manager-files$|home-manager-generation$|nixos-system-|etc$|etc-|graphics-drivers$|system-generators$|user-generators$|X-Restart-Triggers|options[.]json$|home-configuration-reference-manpage$|.+[.]conf$|sddm-wrapped$)'
+# can ever serve them, and their build cost is trivial (file writes, symlink
+# farms, tiny wrapper compiles). Matching pnames are dropped without
+# consulting the baseline, so adding a systemd unit or renaming the host never
+# trips the gate. Keep the patterns structural - a real package must never
+# match.
+CONFIG_ARTIFACT_RE='^(unit-.+[.](service|timer|socket|target|mount|automount|slice|path|scope)|initrd-|system-path$|home-manager-path$|home-manager-files$|home-manager-generation$|nixos-system-|etc$|etc-|graphics-drivers$|system-generators$|user-generators$|X-Restart-Triggers|options[.]json$|home-configuration-reference-manpage$|.+[.]conf$|sddm-wrapped$|security-wrapper($|-)|pam[.]d$|hm-modules-messages$|jack-libs$)'
+
+# Kernel-module closures, matched on the FULL store name because the version
+# strip in pname_of collapses them onto the kernel's own pname and the BLOCK
+# list would fire. aggregateModules / makeModulesClosure assemble THIS host's
+# module list with root-nixpkgs tooling: no cache can serve them, every root
+# nixpkgs bump re-keys them, and the copy is cheap. The kernel itself carries
+# no such suffix and stays BLOCK-guarded.
+KMOD_CLOSURE_RE='^linux-.+-modules(-shrunk)?$'
 
 # Never tolerated, even if baselined: an unserved match here means an
 # hours-long compile (kernel/graphics/toolchain) or a wedged boot. The hint
 # names the substituter that OWNS the package so the failure is actionable.
 BLOCK_PATTERNS=(
   "linux-cachyos|attic.xuyh0120.win/lantian (bump nix-cachyos-kernel only when its release branch is cached; probe: curl -sI <attic>/<hash>.narinfo)"
-  "nvidia|attic.xuyh0120.win/lantian or phycoforce.cachix.org (unfree: cache.nixos.org never carries it)"
+  # Deliberately NOT a bare "nvidia" prefix: nvidia-open (the v4-kernel module,
+  # ~1-2 min compile) and nvidia-persistenced are never publicly cached for
+  # this kernel - upstream builds nvidia only against generic kernels - so a
+  # bare prefix would hold every nix-cachyos-kernel bump forever. Those two are
+  # baseline-tolerated; the big userspace bundle stays guarded.
+  "nvidia-x11|attic.xuyh0120.win/lantian or phycoforce.cachix.org (unfree: cache.nixos.org never carries it)"
   "mesa|cache.nixos.org (Hydra; probe: just hydra-check mesa)"
   "niri|cache.nixos.org (Hydra, not in 'tested'; probe: just hydra-check niri)"
   "quickshell|cache.nixos.org (probe: just hydra-check quickshell)"
@@ -75,20 +114,55 @@ BLOCK_PATTERNS=(
 )
 
 WRITE_BASELINE=0
-if [ "${1:-}" = "--write-baseline" ]; then
-  WRITE_BASELINE=1
+COLD=0
+while [ "${1:-}" != "" ] && [[ "${1:-}" == --* ]] && [ "${1:-}" != "--" ]; do
+  case "$1" in
+    --write-baseline) WRITE_BASELINE=1 ;;
+    --cold) COLD=1 ;;
+    *) echo "plan-gate: unknown flag $1" >&2; exit 1 ;;
+  esac
   shift
-fi
+done
 [ "${1:-}" = "--" ] && shift
 
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/plan-gate.XXXXXX")"
-trap 'rm -rf "$workdir"' EXIT
+# Store paths under a --cold store are read-only; make them deletable first.
+# The final || true is load-bearing: a failing EXIT trap REPLACES the script's
+# exit status, and turning an exit 2 (cannot judge) into a generic 1 would
+# make flake-update blame one input for a network problem.
+trap 'chmod -R u+w "$workdir" 2>/dev/null || true; rm -rf "$workdir" || true' EXIT
 plan="$workdir/plan.txt"
+
+[ "$COLD" -eq 1 ] && PLAN_GATE_STORE="${PLAN_GATE_STORE:-$workdir/store}"
+STORE_ARGS=()
+[ -n "${PLAN_GATE_STORE:-}" ] && STORE_ARGS=(--store "$PLAN_GATE_STORE")
+
+SUB_ARGS=()
+if [ "$WRITE_BASELINE" -eq 1 ]; then
+  filtered=()
+  for sub in "${SUBSTITUTERS[@]}"; do
+    [ "$sub" = "$OWN_CACHE" ] || filtered+=("$sub")
+  done
+  SUBSTITUTERS=("${filtered[@]}")
+  # Applies to nix's own planning too, so own-cache-only paths land in the
+  # BUILD section and flow through the same classifier as everything else.
+  # accept-flake-config must be refused here: the flake's nixConfig appends
+  # extra-substituters (own cache included) AFTER any CLI override, as does
+  # /etc/nix/nix.conf - a plain assignment to the base setting, processed
+  # last, is the only spelling that actually excludes a cache. (Verified
+  # against nix 2.34.8: with this pair, own-cache-only paths move from the
+  # fetched section to the built section.)
+  SUB_ARGS=(--option accept-flake-config false --option substituters "${SUBSTITUTERS[*]}")
+fi
 
 # nix must see the flake's substituters or every path looks unservable and the
 # gate becomes a permanent false alarm (the failure mode this rewrite buries).
+# stdin comes from /dev/null: with accept-flake-config refused (baseline mode)
+# nix on a tty PROMPTS y/N per nixConfig setting, the prompt lands invisibly
+# in $plan, and answering y would re-admit the own cache mid-measurement.
 if ! nix build "$TOPLEVEL" --dry-run --accept-flake-config --log-format raw \
-    --no-write-lock-file "$@" >/dev/null 2>"$plan"; then
+    --no-write-lock-file "${STORE_ARGS[@]}" "${SUB_ARGS[@]}" "$@" \
+    </dev/null >/dev/null 2>"$plan"; then
   cat "$plan" >&2
   echo "!! plan-gate: evaluation failed (see above)." >&2
   exit 1
@@ -162,15 +236,24 @@ if [ "$build_count" -gt "$MAX_BUILDS" ] || grep -qE '^BUILD .*(stage0-posix|boot
 fi
 
 # ---------------------------------------------------------------------------
-# Classify every BUILD derivation with facts.
-# Stage 1: local-by-policy (preferLocalBuild / allowSubstitutes=false). These
-# build locally by DESIGN and are cheap; the flags live either in plain env or
-# inside structuredAttrs (__json), which `nix derivation show` does not
-# flatten - check both.
+# Classify every BUILD derivation with facts from `nix derivation show`
+# (schema v4). Three verdicts:
+#   fod   - fixed-output derivation: an output hash and NO output path in the
+#           schema. It is a pinned download (source tarball, nupkg, crate),
+#           not a compile; cost = bandwidth. Also the reason the output path
+#           falls back to "" below - a FOD row must never reach the probe
+#           stage, where an empty field would corrupt the pipeline.
+#   local - preferLocalBuild / allowSubstitutes=false: builds locally by
+#           DESIGN and is cheap. The flags live in plain env OR the top-level
+#           structuredAttrs object (v4 exposes it; the old env.__json spelling
+#           is kept for older nix).
+#   check - a real candidate; probe substituters for it.
+# A zero-build plan (everything fetchable) makes the grep below match nothing;
+# that is the BEST outcome, not an error - hence the guard.
 # ---------------------------------------------------------------------------
-grep '^BUILD ' "$workdir/records" | cut -d' ' -f2 | sort -u >"$workdir/build-drvs"
+grep '^BUILD ' "$workdir/records" | cut -d' ' -f2 | sort -u >"$workdir/build-drvs" || true
 if [ -s "$workdir/build-drvs" ]; then
-  xargs -a "$workdir/build-drvs" nix derivation show >"$workdir/drvs.json"
+  xargs -a "$workdir/build-drvs" nix derivation show "${STORE_ARGS[@]}" >"$workdir/drvs.json"
 else
   echo '{}' >"$workdir/drvs.json"
 fi
@@ -181,17 +264,46 @@ fi
 jq -rs '
   ([.[] | .derivations // {}] | add // {}) | to_entries[] |
   {drv: .key,
-   out: (.value.outputs.out.path // (.value.outputs | to_entries[0].value.path)),
+   out: ((.value.outputs.out.path // (.value.outputs | to_entries[0].value.path)) // ""),
+   fod: ([.value.outputs[]? | has("hash")] | any),
    local: ((.value.env.preferLocalBuild? == "1") or (.value.env.allowSubstitutes? == "")
+           or (.value.structuredAttrs.preferLocalBuild? == true)
+           or (.value.structuredAttrs.allowSubstitutes? == false)
            or ((.value.env.__json? // "{}" | fromjson? // {})
                | (.preferLocalBuild == true or .allowSubstitutes == false)))} |
-  [.drv, .out, (if .local then "local" else "check" end)] | @tsv
+  [.drv, .out, (if .fod then "fod" elif .local then "local" else "check" end)] | @tsv
 ' "$workdir/drvs.json" >"$workdir/classified"
 
-local_policy_count="$(awk -F'\t' '$3=="local"' "$workdir/classified" | wc -l)"
+# Every BUILD derivation must be accounted for: nix silently reshaped this
+# schema once already (env.__json -> structuredAttrs), and a future reshape
+# would otherwise classify zero rows and pass a completely unexamined plan.
+classified_count="$(wc -l <"$workdir/classified")"
+candidate_count="$(wc -l <"$workdir/build-drvs")"
+if [ "$classified_count" -ne "$candidate_count" ]; then
+  echo "?? plan-gate: classified $classified_count of $candidate_count build derivations - nix derivation show schema drift? Cannot judge an unexamined plan." >&2
+  exit 2
+fi
 
-# Stage 2: narinfo probe for the rest, first 200 wins. ~seconds, parallel.
-awk -F'\t' '$3=="check" {print $1 "\t" $2}' "$workdir/classified" >"$workdir/to-probe"
+local_policy_count="$(awk -F'\t' '$3=="local"' "$workdir/classified" | wc -l)"
+fod_count="$(awk -F'\t' '$3=="fod"' "$workdir/classified" | wc -l)"
+
+# A check-stage row without an output path cannot be probed, cannot be judged,
+# and WILL build locally at unknown cost (floating content-addressed drv?).
+# Loud failure, never a pass - and never fed to the probe, where an empty
+# field would shift every subsequent line's meaning.
+awk -F'\t' '$3=="check" && $2==""  {print $1}' "$workdir/classified" >"$workdir/unprobeable"
+awk -F'\t' '$3=="check" && $2!=""  {print $1 "\t" $2}' "$workdir/classified" >"$workdir/to-probe"
+
+violations=0
+if [ -s "$workdir/unprobeable" ]; then
+  echo "!! plan-gate: build derivations with no computable output path - cannot probe, refusing to pass:" >&2
+  sed 's/^/   /' "$workdir/unprobeable" >&2
+  violations="$(wc -l <"$workdir/unprobeable")"
+fi
+
+# Stage 2: narinfo probe, first 200 wins. ~seconds, parallel. Lines are passed
+# WHOLE (-d '\n') and split inside the wrapper: xargs -L would treat the tab
+# in "drv<TAB>out" as a trailing blank and merge adjacent lines.
 probe_one() {
   local drv="$1" out="$2" hash sub code
   hash="$(basename "$out")"; hash="${hash%%-*}"
@@ -204,26 +316,46 @@ probe_one() {
 export -f probe_one
 export SUBSTITUTERS_STR="${SUBSTITUTERS[*]}"
 # re-materialize the array inside the xargs subshell
-probe_wrapper() { read -ra SUBSTITUTERS <<<"$SUBSTITUTERS_STR"; probe_one "$@"; }
+probe_wrapper() {
+  read -ra SUBSTITUTERS <<<"$SUBSTITUTERS_STR"
+  local drv out
+  IFS=$'\t' read -r drv out <<<"$1"
+  probe_one "$drv" "$out"
+}
 export -f probe_wrapper
-xargs -r -a "$workdir/to-probe" -L1 -P 8 bash -c 'probe_wrapper "$@"' _ >"$workdir/probed" || true
+xargs -r -a "$workdir/to-probe" -d '\n' -n1 -P 8 bash -c 'probe_wrapper "$@"' _ >"$workdir/probed" || true
 touch "$workdir/probed"
+
+# probe_one emits exactly one line per candidate, so a shortfall means the
+# probe infrastructure itself failed (xargs flag unsupported, children
+# killed): the || true above must never turn that into "everything served".
+probed_count="$(wc -l <"$workdir/probed")"
+to_probe_count="$(wc -l <"$workdir/to-probe")"
+if [ "$probed_count" -ne "$to_probe_count" ]; then
+  echo "?? plan-gate: probed $probed_count of $to_probe_count candidates - the probe itself failed; cannot judge." >&2
+  exit 2
+fi
 
 served_count="$(grep -c '^SERVED' "$workdir/probed" || true)"
 
-# Stage 3: unserved -> block / baseline / violation, keyed on pname
-# (store name with the trailing -<digit>… version stripped).
+# Stage 3: unserved -> config-artifact / block / baseline / violation, keyed
+# on pname (store name with the trailing -<digit>… version stripped).
 pname_of() {
   local base; base="$(basename "$1" .drv)"
   base="${base#*-}"
   sed -E 's/-[0-9].*$//' <<<"$base"
 }
 
-violations=0
 config_artifacts=0
 tolerated=()
 unserved_pnames=()
 while IFS=$'\t' read -r _ drv out; do
+  fullname="$(basename "$drv" .drv)"
+  fullname="${fullname#*-}"
+  if grep -qE "$KMOD_CLOSURE_RE" <<<"$fullname"; then
+    config_artifacts=$((config_artifacts + 1))
+    continue
+  fi
   pname="$(pname_of "$drv")"
   if grep -qE "$CONFIG_ARTIFACT_RE" <<<"$pname"; then
     config_artifacts=$((config_artifacts + 1))
@@ -252,27 +384,52 @@ while IFS=$'\t' read -r _ drv out; do
 done < <(grep '^UNSERVED' "$workdir/probed" || true)
 
 if [ "$WRITE_BASELINE" -eq 1 ]; then
+  # Never merge a measurement taken during an outage: everything the dead
+  # cache serves would probe unserved, be written, and - merge semantics -
+  # stay tolerated forever.
+  if [ "${#unreachable[@]}" -gt 0 ]; then
+    echo "?? plan-gate: not writing a baseline measured while substituters were unreachable (${unreachable[*]})." >&2
+    exit 2
+  fi
   {
-    echo "# Measured expected-local set: pnames that no substituter serves at a"
-    echo "# healthy lock (unfree wrappers, FHS envs, config artifacts). Regenerate"
-    echo "# with: just gate-baseline   Entries matching a BLOCK pattern are never"
-    echo "# written here. Generated $(date -u +%F) against $(jq -r '.nodes[.nodes.root.inputs.nixpkgs].locked.rev[0:12]' flake.lock)."
-    printf '%s\n' "${unserved_pnames[@]}" | sort -u | while read -r p; do
+    echo "# Measured expected-local set: pnames no PUBLIC substituter serves at a"
+    echo "# healthy lock - unfree repacks, FHS envs, repo-owned flake packages,"
+    echo "# per-config builds. The gate tolerates these; they compile at switch"
+    echo "# time, so review the cost of every newly added entry (the writer"
+    echo "# prints them). Regenerate with: just gate-baseline"
+    echo "# (cold store, own cache excluded: the own cache only proves what a"
+    echo "# PAST run pushed, not what a candidate lock will need). Re-measuring"
+    echo "# MERGES with existing entries - an incremental cache means one"
+    echo "# measurement only ever sees a delta; prune by hand when a package"
+    echo "# leaves the config. BLOCK-pattern matches are never written."
+    echo "# Last measured $(date -u +%F) against $(jq -r '.nodes[.nodes.root.inputs.nixpkgs].locked.rev[0:12]' flake.lock)."
+    {
+      if [ -f "$BASELINE" ]; then grep -vE '^#|^[[:space:]]*$' "$BASELINE" || true; fi
+      if [ "${#unserved_pnames[@]}" -gt 0 ]; then printf '%s\n' "${unserved_pnames[@]}"; fi
+    } | sort -u | while read -r p; do
       skip=0
       for entry in "${BLOCK_PATTERNS[@]}"; do
         [[ "$p" == "${entry%%|*}"* ]] && { skip=1; break; }
       done
-      [ "$skip" -eq 0 ] && echo "$p"
+      # An if, not '[ ] && echo': a skipped final pname would return 1 from
+      # the loop, and errexit would kill the script before the mv below.
+      if [ "$skip" -eq 0 ]; then echo "$p"; fi
     done
-  } >"$BASELINE"
-  echo ">> plan-gate: baseline written to $BASELINE ($(grep -cv '^#' "$BASELINE") pnames)."
+  } >"$workdir/baseline.new"
+  added="$(comm -13 <(grep -vE '^#|^[[:space:]]*$' "$BASELINE" 2>/dev/null | sort -u) \
+                    <(grep -v '^#' "$workdir/baseline.new") | tr '\n' ' ')"
+  mv "$workdir/baseline.new" "$BASELINE"
+  echo ">> plan-gate: baseline written to $BASELINE ($(grep -cv '^#' "$BASELINE") pnames, merged)."
+  if [ -n "$added" ]; then
+    echo "   newly tolerated (REVIEW each - it will compile at switch unheld): $added"
+  fi
 fi
 
 echo ">> plan-gate: $fetch_count fetched ${download:+$download }| $build_count to build:" \
-  "$local_policy_count local-by-policy, $served_count cache-served, $config_artifacts config-artifacts," \
-  "${#tolerated[@]} tolerated, $violations violations."
+  "$local_policy_count local-by-policy, $fod_count source-fetches, $served_count cache-served," \
+  "$config_artifacts config-artifacts, ${#tolerated[@]} tolerated, $violations violations."
 if [ "${#tolerated[@]}" -gt 0 ]; then
-  echo "   tolerated (will compile at switch, measured cheap): $(printf '%s ' "${tolerated[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+  echo "   tolerated (expected-local; compiles at switch): $(printf '%s ' "${tolerated[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
 fi
 if [ "${#unreachable[@]}" -gt 0 ]; then
   echo "?? unreachable substituters: ${unreachable[*]}" >&2

@@ -63,18 +63,27 @@ preflight:
     ./scripts/plan-gate.sh
     @just lock-age
 
+# On an up-to-date machine the warm gate sees an empty plan and proves
+# nothing; this plans against a throwaway empty store instead, so it judges
+# exactly what a fresh CI runner would (~2.5 GiB temp disk while it runs).
+[doc("Judge the current lock as CI's cold store sees it")]
+preflight-cold:
+    ./scripts/plan-gate.sh --cold
+
 [doc("Judge a candidate nixpkgs rev without touching flake.lock")]
 check-tip ref=upstream_ref:
     ./scripts/plan-gate.sh -- --override-input nixpkgs github:NixOS/nixpkgs/{{ref}}
 
-# Measure the expected-local set (unfree wrappers, FHS envs, config artifacts
-# no cache will ever serve) and write it to scripts/plan-gate-baseline.txt.
-# Needs a lock with a NON-EMPTY plan to see anything: run it right after
-# `just update` (before switching), or point it at a candidate rev like
-# check-tip does: just gate-baseline -- --override-input nixpkgs github:...
-[doc("Re-measure the tolerated expected-local set for the gate")]
+# Measure the expected-local set (unfree repacks, FHS envs, repo-owned flake
+# packages, per-config builds) and MERGE it into
+# scripts/plan-gate-baseline.txt. Measures against a cold store with the
+# repo's own cache excluded: the own cache only proves what a past run
+# pushed, and a warm store hides everything already realized - both would
+# shrink the measurement to a misleading delta (the 2026-08-02 failure mode:
+# a 9-entry warm baseline vs ~60 genuinely expected-local pnames in CI).
+[doc("Re-measure the tolerated expected-local set for the gate (cold, sans own cache)")]
 gate-baseline *args:
-    ./scripts/plan-gate.sh --write-baseline "$@"
+    ./scripts/plan-gate.sh --write-baseline --cold "$@"
 
 # ---------------------------------------------------------------------------
 # updating

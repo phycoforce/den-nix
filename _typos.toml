@@ -1,7 +1,9 @@
 # Config for the `typos` spell-checker (run via git-hooks in CI and locally).
 [files]
 # flake.lock is generated JSON full of base32 narHashes -> pure noise for typos.
-extend-exclude = ["flake.lock"]
+# plan-gate-baseline.txt is a measured artifact list (pnames + a git rev in the
+# header) written by plan-gate.sh --write-baseline; hex revs misflag as words.
+extend-exclude = ["flake.lock", "scripts/plan-gate-baseline.txt"]
 
 [default.extend-words]
 # Add project-specific tokens here only if typos ever misflags a real word.

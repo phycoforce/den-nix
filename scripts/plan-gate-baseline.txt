@@ -1,14 +1,51 @@
-# Measured expected-local set: pnames that no substituter serves at a
-# healthy lock (unfree wrappers, FHS envs, config artifacts). Regenerate
-# with: just gate-baseline   Entries matching a BLOCK pattern are never
-# written here. Generated 2026-08-01 against e2587caef70c;
-# config.toml (noctalia declarative settings render) merged in 2026-08-02.
+# Measured expected-local set: pnames no PUBLIC substituter serves at a
+# healthy lock - unfree repacks, FHS envs, repo-owned flake packages,
+# per-config builds. The gate tolerates these; they compile at switch
+# time, so review the cost of every newly added entry (the writer
+# prints them). Regenerate with: just gate-baseline
+# (cold store, own cache excluded: the own cache only proves what a
+# PAST run pushed, not what a candidate lock will need). Re-measuring
+# MERGES with existing entries - an incremental cache means one
+# measurement only ever sees a delta; prune by hand when a package
+# leaves the config. BLOCK-pattern matches are never written.
+# Last measured 2026-08-02 against 1559d3daa3ec.
+1password
+1password-cli
+claude-code
+Config.Net
 config.toml
 gamescope
+glibc-locales
+goaaats.Steamworks
+HexaGen.Runtime
+Hexa.NET.ImGui
+Hexa.NET.ImGui.Backends.SDL3
+Hexa.NET.SDL3
+Hexa.NET.SDL3.Image
+KeySharp
+lutris
+Microsoft.CodeAnalysis.Common
+Microsoft.CodeAnalysis.CSharp
+Microsoft.CodeAnalysis.NetAnalyzers
+Microsoft.Win32.Registry
 mise-bash-completion.bash
 noctalia-config
+nvidia-open
+nvidia-persistenced
+opnix
+PInvoke.Kernel32
+PInvoke.Windows.Core
 plexamp
+plex-desktop
+protontricks
+qylock-sddm-themes-unstable
+Serilog.Enrichers.Sensitive
+SharedMemory
 spotify
 steam
 steam-run
 thunderbird
+vscode
+winbox
+winbox-migrate
+XIVLauncher
