@@ -15,7 +15,10 @@
 #   3. Probe every remaining output against every substituter (narinfo); a
 #      path any substituter serves is never a violation.
 #   4. What survives is an unserved local build: BLOCK pnames always fail,
-#      baseline pnames are tolerated, anything else is a violation.
+#      i686 rows are policy-tolerated up to PLAN_GATE_MAX_I686 (Hydra never
+#      builds this host's full 32-bit set; only third-party caches serve it
+#      incidentally, at revs of their choosing), baseline pnames are
+#      tolerated, anything else is a violation.
 #
 # Knobs:
 #   --cold                 plan against a throwaway empty store so the gate
@@ -36,6 +39,11 @@ BASELINE="${PLAN_GATE_BASELINE:-$SCRIPT_DIR/plan-gate-baseline.txt}"
 # Calibrated against a COLD plan (~600 candidates); the offline signature this
 # guards against is thousands of builds plus bootstrap seeds.
 MAX_BUILDS="${PLAN_GATE_MAX_BUILDS:-2000}"
+# The usual unserved 32-bit leaf set (nvidia EGL stack + stragglers) is ~10;
+# the runtime closure holds ~460 i686 packages, so past this cap the plan is
+# an i686 mass rebuild no cache will absorb - hold, don't tolerate. Under the
+# cap, non-BLOCK i686 builds compile at switch by design (bounded, listed).
+MAX_I686="${PLAN_GATE_MAX_I686:-25}"
 
 # Must mirror the flake's nixConfig + the default cache; an unreachable cache
 # makes "no one serves X" unknowable, so the gate exits 2 instead of guessing.
@@ -82,6 +90,7 @@ BLOCK_PATTERNS=(
   "thunderbird-unwrapped|cache.nixos.org (multi-hour build)"
   "firefox-unwrapped|cache.nixos.org (multi-hour build)"
   "llvm|cache.nixos.org (toolchain; a rebuild here means the tip is mid-rebuild - hold)"
+  "clang|cache.nixos.org (toolchain; hold - also guards the i686 twin, which llvm/gcc prefixes miss)"
   "rustc|cache.nixos.org (toolchain; hold)"
   "gcc|cache.nixos.org (toolchain; hold)"
 )
@@ -224,17 +233,19 @@ fi
 # Schema v4 (nix 2.34): top level is {"derivations": {...}}, keys and output
 # paths are store-RELATIVE, and xargs may split large sets into several
 # invocations -> slurp and merge.
+# .system rides along as a 4th column so stage 3 can apply the 32-bit policy.
 jq -rs '
   ([.[] | .derivations // {}] | add // {}) | to_entries[] |
   {drv: .key,
    out: ((.value.outputs.out.path // (.value.outputs | to_entries[0].value.path)) // ""),
+   sys: (.value.system // ""),
    fod: ([.value.outputs[]? | has("hash")] | any),
    local: ((.value.env.preferLocalBuild? == "1") or (.value.env.allowSubstitutes? == "")
            or (.value.structuredAttrs.preferLocalBuild? == true)
            or (.value.structuredAttrs.allowSubstitutes? == false)
            or ((.value.env.__json? // "{}" | fromjson? // {})
                | (.preferLocalBuild == true or .allowSubstitutes == false)))} |
-  [.drv, .out, (if .fod then "fod" elif .local then "local" else "check" end)] | @tsv
+  [.drv, .out, (if .fod then "fod" elif .local then "local" else "check" end), .sys] | @tsv
 ' "$workdir/drvs.json" >"$workdir/classified"
 
 # Every BUILD derivation must be accounted for: nix reshaped this schema once
@@ -254,7 +265,7 @@ fod_count="$(awk -F'\t' '$3=="fod"' "$workdir/classified" | wc -l)"
 # at unknown cost: fail loudly, and keep it out of the probe input, where an
 # empty field would shift every subsequent field's meaning.
 awk -F'\t' '$3=="check" && $2==""  {print $1}' "$workdir/classified" >"$workdir/unprobeable"
-awk -F'\t' '$3=="check" && $2!=""  {print $1 "\t" $2}' "$workdir/classified" >"$workdir/to-probe"
+awk -F'\t' '$3=="check" && $2!=""  {print $1 "\t" $2 "\t" $4}' "$workdir/classified" >"$workdir/to-probe"
 
 violations=0
 if [ -s "$workdir/unprobeable" ]; then
@@ -267,22 +278,22 @@ fi
 # split inside the wrapper: xargs -L would treat the tab in "drv<TAB>out" as a
 # trailing blank and merge adjacent lines.
 probe_one() {
-  local drv="$1" out="$2" hash sub code
+  local drv="$1" out="$2" sys="$3" hash sub code
   hash="$(basename "$out")"; hash="${hash%%-*}"
   for sub in "${SUBSTITUTERS[@]}"; do
     code="$(curl -m 8 -s -o /dev/null -w '%{http_code}' "$sub/$hash.narinfo" || true)"
     if [ "$code" = "200" ]; then echo -e "SERVED\t$drv\t$sub"; return; fi
   done
-  echo -e "UNSERVED\t$drv\t$out"
+  echo -e "UNSERVED\t$drv\t$out\t$sys"
 }
 export -f probe_one
 export SUBSTITUTERS_STR="${SUBSTITUTERS[*]}"
 # re-materialize the array inside the xargs subshell
 probe_wrapper() {
   read -ra SUBSTITUTERS <<<"$SUBSTITUTERS_STR"
-  local drv out
-  IFS=$'\t' read -r drv out <<<"$1"
-  probe_one "$drv" "$out"
+  local drv out sys
+  IFS=$'\t' read -r drv out sys <<<"$1"
+  probe_one "$drv" "$out" "$sys"
 }
 export -f probe_wrapper
 xargs -r -a "$workdir/to-probe" -d '\n' -n1 -P 8 bash -c 'probe_wrapper "$@"' _ >"$workdir/probed" || true
@@ -310,8 +321,9 @@ pname_of() {
 
 config_artifacts=0
 tolerated=()
+i686_tolerated=()
 unserved_pnames=()
-while IFS=$'\t' read -r _ drv out; do
+while IFS=$'\t' read -r _ drv out sys; do
   fullname="$(basename "$drv" .drv)"
   fullname="${fullname#*-}"
   if grep -qE "$KMOD_CLOSURE_RE" <<<"$fullname"; then
@@ -323,27 +335,41 @@ while IFS=$'\t' read -r _ drv out; do
     config_artifacts=$((config_artifacts + 1))
     continue
   fi
-  unserved_pnames+=("$pname")
+  # i686 rows stay out of the baseline: a pname key cannot tell an i686
+  # derivation from its x86_64 twin, and the policy arm below covers them.
+  [ "$sys" = "i686-linux" ] || unserved_pnames+=("$pname")
   blocked_hint=""
   for entry in "${BLOCK_PATTERNS[@]}"; do
     pat="${entry%%|*}"
     if [[ "$pname" == "$pat"* ]]; then blocked_hint="${entry#*|}"; break; fi
   done
   if [ -n "$blocked_hint" ]; then
-    echo "!! VIOLATION: $pname would compile locally ($(basename "$drv"))" >&2
+    # $sys in the message: an i686 row is indistinguishable from its x86_64
+    # twin by name, and hydra-check reports only the x86_64 job.
+    echo "!! VIOLATION: $pname would compile locally ($(basename "$drv")${sys:+, $sys})" >&2
     echo "   expected from: $blocked_hint" >&2
     echo "   output: $out" >&2
     violations=$((violations + 1))
+  elif [ "$sys" = "i686-linux" ]; then
+    i686_tolerated+=("$pname")
   elif [ "$WRITE_BASELINE" -eq 0 ] && [ -f "$BASELINE" ] && grep -qxF "$pname" "$BASELINE"; then
     tolerated+=("$pname")
   elif [ "$WRITE_BASELINE" -eq 0 ]; then
-    echo "!! VIOLATION: $pname is a NEW unserved local build (not in $(basename "$BASELINE"))" >&2
+    echo "!! VIOLATION: $pname is a NEW unserved local build (not in $(basename "$BASELINE")${sys:+; $sys})" >&2
     echo "   no configured substituter serves it; if this is a cheap wrapper/config artifact," >&2
     echo "   re-measure with: just gate-baseline   otherwise: hold this lock." >&2
     echo "   output: $out" >&2
     violations=$((violations + 1))
   fi
 done < <(grep '^UNSERVED' "$workdir/probed" || true)
+
+# A flag, not a violation: the counter must stay reconcilable with the
+# per-row output. Skipped in baseline mode - a measurement holds nothing.
+i686_over_cap=0
+if [ "$WRITE_BASELINE" -eq 0 ] && [ "${#i686_tolerated[@]}" -gt "$MAX_I686" ]; then
+  echo "!! plan-gate: ${#i686_tolerated[@]} unserved 32-bit builds (cap $MAX_I686) - an i686 mass rebuild no cache will absorb, not the usual leaf set. Holding." >&2
+  i686_over_cap=1
+fi
 
 if [ "$WRITE_BASELINE" -eq 1 ]; then
   # Never merge a measurement taken during an outage: everything the dead
@@ -389,15 +415,21 @@ fi
 
 echo ">> plan-gate: $fetch_count fetched ${download:+$download }| $build_count to build:" \
   "$local_policy_count local-by-policy, $fod_count source-fetches, $served_count cache-served," \
-  "$config_artifacts config-artifacts, ${#tolerated[@]} tolerated, $violations violations."
+  "$config_artifacts config-artifacts, ${#i686_tolerated[@]} i686-tolerated, ${#tolerated[@]} tolerated, $violations violations."
+if [ "${#i686_tolerated[@]}" -gt 0 ]; then
+  echo "   i686-tolerated (32-bit, unserved by policy; compiles at switch): $(printf '%s ' "${i686_tolerated[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+fi
 if [ "${#tolerated[@]}" -gt 0 ]; then
   echo "   tolerated (expected-local; compiles at switch): $(printf '%s ' "${tolerated[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
 fi
 if [ "${#unreachable[@]}" -gt 0 ]; then
   echo "?? unreachable substituters: ${unreachable[*]}" >&2
-  if [ "$violations" -gt 0 ]; then
-    echo "?? violations above may be phantoms of the unreachable cache - cannot judge." >&2
+  # i686-tolerated rows count too: they are tolerated, not flagged, yet only
+  # a third-party cache ever serves them - a dead cache makes them phantoms
+  # that would otherwise pass silently.
+  if [ "$violations" -gt 0 ] || [ "${#i686_tolerated[@]}" -gt 0 ]; then
+    echo "?? violations/i686-tolerated above may be phantoms of the unreachable cache - cannot judge." >&2
     exit 2
   fi
 fi
-[ "$violations" -eq 0 ] || exit 1
+[ "$violations" -eq 0 ] && [ "$i686_over_cap" -eq 0 ] || exit 1

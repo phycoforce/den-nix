@@ -8,7 +8,7 @@
 # MERGES with existing entries - an incremental cache means one
 # measurement only ever sees a delta; prune by hand when a package
 # leaves the config. BLOCK-pattern matches are never written.
-# Last measured 2026-08-02 against 1559d3daa3ec.
+# Last measured 2026-08-04 against 1559d3daa3ec.
 1password
 1password-cli
 claude-code
