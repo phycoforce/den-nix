@@ -320,7 +320,8 @@
 
         # Claude Code writes runtime state back into ~/.claude/settings.json, so
         # it cannot be a store symlink: merge only our keys and leave the rest
-        # mutable. Empty attribution strings drop the commit/PR credit lines.
+        # mutable. Empty attribution strings drop the commit/PR credit lines;
+        # sessionUrl false is separate and drops the Claude-Session link.
         home.activation.agentSettingsClaudeCode = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           if [ -n "''${DRY_RUN_CMD:-}" ]; then
             echo "Skipping Claude Code settings.json attribution merge during dry run"
@@ -331,7 +332,7 @@
               echo '{}' > "$settings"
             fi
             tmp="$settings.tmp"
-            if ${pkgs.jq}/bin/jq '.attribution = { commit: "", pr: "" }' "$settings" > "$tmp"; then
+            if ${pkgs.jq}/bin/jq '.attribution = { commit: "", pr: "", sessionUrl: false }' "$settings" > "$tmp"; then
               ${pkgs.coreutils}/bin/mv "$tmp" "$settings"
             else
               echo "WARNING: could not update $settings (invalid JSON?); leaving it unchanged" >&2
