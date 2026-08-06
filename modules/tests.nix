@@ -50,6 +50,21 @@
         aaron-at-temperantia.programs.noctalia.package.outPath == temperantiaPkgs.noctalia.outPath
       );
 
+      # Root cause of the daily re-login: the claude CLI launched from
+      # boot-path HM activation (OAuth refresh against an unreachable API
+      # loses the refresh token). MCP wiring must stay a declarative jq merge.
+      checks.claude-no-cli-in-activation = checkCond "claude-no-cli-in-activation" (
+        !builtins.any (entry: pkgs.lib.hasInfix "bin/claude" entry.data) (
+          builtins.attrValues aaron-at-temperantia.home.activation
+        )
+      );
+
+      # The one remaining CLI caller (plugin install) lives in a
+      # reachability-gated user service, not activation.
+      checks.claude-plugins-user-service = checkCond "claude-plugins-user-service" (
+        aaron-at-temperantia.systemd.user.services ? claude-code-plugins
+      );
+
       # communication.nix / development.nix hold the client-side halves (see
       # _home/noctalia.nix); dropping an id here breaks nothing at build time.
       checks.noctalia-community-templates =

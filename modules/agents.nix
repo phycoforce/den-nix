@@ -87,11 +87,6 @@
         # Node on PATH for agent plugin/hook runtimes that shell out to it.
         agentRuntimePath = lib.makeBinPath [ pkgs.nodejs_22 ];
 
-        # Boot-time HM activation runs before network-online.target; launching
-        # the claude CLI with DNS down fails its OAuth refresh and clobbers
-        # ~/.claude.json (daily re-login, silent API billing). Gate on this.
-        agentOnline = host: "${pkgs.getent}/bin/getent hosts ${host} >/dev/null 2>&1";
-
         mcpNixosCommand = lib.getExe pkgs.mcp-nixos;
         # playwright-mcp otherwise tries to download chrome-for-testing into its
         # read-only /nix/store PLAYWRIGHT_BROWSERS_PATH; point it at the
@@ -118,7 +113,8 @@
         #   urlEnv     same URL in OpenCode's `{env:VAR}` syntax
         #   needs      loader vars that must be non-empty, else skip with a
         #              warning rather than register a half-resolved URL
-        #   headers    OpenCode only (`claude mcp add` bakes literal values)
+        #   headers    OpenCode only (the Claude Code jq adapter renders just
+        #              type+url and asserts no headers sneak past it)
         #   agents     front-ends to register with; default all
         allAgents = [
           "claude-code"
@@ -224,42 +220,130 @@
           exec ${pkgs.bun}/bin/bun install --cwd "$opencode_config_dir"
         '';
 
-        # `--scope user` so the servers follow the user across every project.
-        claudeMcpBlock =
+        # Claude Code MCP wiring is declarative: a jq merge into the top-level
+        # (user-scope) mcpServers of ~/.claude.json. Launching the claude CLI
+        # from boot-time activation is what caused the daily re-login (OAuth
+        # refresh against a not-yet-reachable API loses the refresh token).
+        claudeMcpServers = mcpServersFor "claude-code";
+        claudeMcpNamesJson = builtins.toJSON (lib.attrNames claudeMcpServers);
+        claudeMcpStdioJson = builtins.toJSON (
+          lib.mapAttrs (_: srv: {
+            type = "stdio";
+            command = builtins.head srv.command;
+            args = builtins.tail srv.command;
+            env = { };
+          }) (lib.filterAttrs (_: srv: srv.transport == "stdio") claudeMcpServers)
+        );
+        # The jq adapter renders only {type, url}; assert rather than silently
+        # drop auth headers on a future claude-code http server.
+        claudeMcpHttp =
+          let
+            http = lib.filterAttrs (_: srv: srv.transport == "http") claudeMcpServers;
+          in
+          assert lib.all (srv: !(srv ? headers)) (lib.attrValues http);
+          http;
+        # Registry names become shell/jq identifiers; constrain the charset
+        # (and, below, uniqueness after s/-/_/) at eval time.
+        claudeMcpJqVar =
+          name:
+          assert builtins.match "[A-Za-z0-9_-]+" name != null;
+          "url_${lib.replaceStrings [ "-" ] [ "_" ] name}";
+        claudeMcpJqRef = name: "$" + claudeMcpJqVar name;
+        claudeMcpUrlGuard =
           name: srv:
           let
             needs = srv.needs or [ ];
-            add =
-              if srv.transport == "stdio" then
-                "${claudeBin} mcp add --scope user --transport stdio ${name} -- ${lib.escapeShellArgs srv.command}"
-              else
-                # Double quotes, not escapeShellArg: the shell must expand the
-                # loader variables inside the URL.
-                "${claudeBin} mcp add --scope user --transport http ${name} \"${srv.url}\"";
-            register = ''
-              ${claudeBin} mcp remove --scope user ${name} >/dev/null 2>&1 || true
-              ${add}
-            '';
+            # Double quotes, not escapeShellArg: the shell must expand the
+            # loader variables inside the URL.
+            assign = ''${claudeMcpJqVar name}="${srv.url}"'';
           in
           if needs == [ ] then
-            register
+            assign
           else
             ''
+              ${claudeMcpJqVar name}=""
               if ${lib.concatMapStringsSep " && " (v: "[ -n \"\${${v}:-}\" ]") needs}; then
-              ${register}
+                ${assign}
               else
                 echo "WARNING: skipping ${name} MCP for Claude Code (unset ${lib.concatStringsSep ", " needs})" >&2
               fi
             '';
-
-        claudePluginBlock = p: ''
-          if [ -z "$(${claudeBin} plugin list --json 2>/dev/null \
-            | ${pkgs.jq}/bin/jq -r --arg id ${lib.escapeShellArg p.id} '.[] | select(.id == $id) | .installPath' \
-            | ${pkgs.coreutils}/bin/head -n1)" ]; then
-            ${claudeBin} plugin marketplace add ${lib.escapeShellArg p.marketplace} >/dev/null
-            ${claudeBin} plugin install ${lib.escapeShellArg p.plugin} >/dev/null
-          fi
+        # A skipped http server (needs unmet) keeps its old entry; only keys we
+        # previously managed AND that left the registry are pruned. Unmanaged
+        # keys (user-added servers, oauth/project state) are never touched.
+        claudeMcpJqProgram = ''
+          ($prev - $names) as $stale
+          | .mcpServers = (
+              ((.mcpServers // {}) | with_entries(select(.key as $k | $stale | index($k) | not)))
+              + $stdio${
+                lib.concatStrings (
+                  lib.mapAttrsToList (
+                    name: _:
+                    "\n    + (if ${claudeMcpJqRef name} == \"\" then {} else {${builtins.toJSON name}: {type: \"http\", url: ${claudeMcpJqRef name}}} end)"
+                  ) claudeMcpHttp
+                )
+              }
+            )
         '';
+        claudeMcpJqArgs =
+          let
+            vars = lib.mapAttrsToList (name: _: claudeMcpJqVar name) claudeMcpHttp;
+          in
+          assert vars == lib.unique vars;
+          lib.concatStringsSep " " (
+            lib.mapAttrsToList (
+              name: _: "--arg ${claudeMcpJqVar name} \"${claudeMcpJqRef name}\""
+            ) claudeMcpHttp
+          );
+        claudeManagedStateFile = "${config.xdg.stateHome}/agent-mcp/claude-managed-servers.json";
+
+        # Plugin install genuinely needs the network and the claude CLI; it
+        # runs from a user service, exits before any CLI launch when nothing
+        # is missing, and (since user units cannot order on the system
+        # network-online.target) probes real API reachability first.
+        claudePluginsInstall = pkgs.writeShellApplication {
+          name = "claude-code-plugins-install";
+          runtimeInputs = with pkgs; [
+            coreutils
+            curl
+            git
+            jq
+          ];
+          text =
+            let
+              pluginMissing =
+                p:
+                "! jq -e --arg id ${lib.escapeShellArg p.id} '.plugins | has($id)' \"$plugins_state\" >/dev/null 2>&1";
+              install = p: ''
+                if ${pluginMissing p}; then
+                  ${claudeBin} plugin marketplace add ${lib.escapeShellArg p.marketplace} >/dev/null
+                  ${claudeBin} plugin install ${lib.escapeShellArg p.plugin} >/dev/null
+                fi
+              '';
+            in
+            ''
+              plugins_state="$HOME/.claude/plugins/installed_plugins.json"
+              missing=0
+              ${lib.concatMapStrings (p: ''
+                if ${pluginMissing p}; then
+                  missing=1
+                fi
+              '') agentPlugins}
+              if [ "$missing" -eq 0 ]; then
+                exit 0
+              fi
+              tries=24
+              until curl -s -o /dev/null --max-time 5 https://api.anthropic.com/; do
+                tries=$((tries - 1))
+                if [ "$tries" -le 0 ]; then
+                  echo "api.anthropic.com unreachable; leaving Claude Code plugin install for next login" >&2
+                  exit 0
+                fi
+                sleep 5
+              done
+              ${lib.concatMapStrings install agentPlugins}
+            '';
+        };
 
         # OpenCode is fully declarative: the MCP block is a generated file.
         opencodeMcpConfig = lib.mapAttrs (
@@ -294,29 +378,54 @@
             ''
               if [ -n "''${DRY_RUN_CMD:-}" ]; then
                 echo "Skipping Claude Code MCP wiring during dry run"
-              elif ! ${agentOnline "api.anthropic.com"}; then
-                echo "Skipping Claude Code MCP wiring: api.anthropic.com unresolvable (offline)" >&2
               else
                 ${sourceAgentEnv}
-                ${lib.concatStringsSep "\n" (lib.mapAttrsToList claudeMcpBlock (mcpServersFor "claude-code"))}
+                ${lib.concatStringsSep "\n" (lib.mapAttrsToList claudeMcpUrlGuard claudeMcpHttp)}
+                # 0600 throughout: the file holds oauthAccount; a bare
+                # redirect under the service's 022 umask would leave 0644.
+                claude_json="$HOME/.claude.json"
+                if [ ! -s "$claude_json" ]; then
+                  ${pkgs.coreutils}/bin/install -m 600 /dev/null "$claude_json"
+                  echo '{}' > "$claude_json"
+                fi
+                prev='[]'
+                if [ -s ${lib.escapeShellArg claudeManagedStateFile} ]; then
+                  prev="$(${pkgs.jq}/bin/jq -c 'if type == "array" then . else [] end' \
+                    ${lib.escapeShellArg claudeManagedStateFile} 2>/dev/null || echo '[]')"
+                fi
+                tmp="$claude_json.tmp"
+                ${pkgs.coreutils}/bin/install -m 600 /dev/null "$tmp"
+                if ${pkgs.jq}/bin/jq \
+                  --argjson stdio ${lib.escapeShellArg claudeMcpStdioJson} \
+                  --argjson names ${lib.escapeShellArg claudeMcpNamesJson} \
+                  --argjson prev "$prev" \
+                  ${claudeMcpJqArgs} \
+                  ${lib.escapeShellArg claudeMcpJqProgram} \
+                  "$claude_json" > "$tmp"; then
+                  # No-op merges leave the inode alone: the claude CLI rewrites
+                  # this file itself, so replace it only when content changed.
+                  if ${pkgs.diffutils}/bin/cmp -s "$tmp" "$claude_json"; then
+                    ${pkgs.coreutils}/bin/rm -f "$tmp"
+                  else
+                    ${pkgs.coreutils}/bin/mv "$tmp" "$claude_json"
+                  fi
+                  ${pkgs.coreutils}/bin/mkdir -p "$(${pkgs.coreutils}/bin/dirname ${lib.escapeShellArg claudeManagedStateFile})"
+                  printf '%s\n' ${lib.escapeShellArg claudeMcpNamesJson} > ${lib.escapeShellArg claudeManagedStateFile}
+                else
+                  echo "WARNING: could not update $claude_json (invalid JSON?); leaving it unchanged" >&2
+                  ${pkgs.coreutils}/bin/rm -f "$tmp"
+                fi
               fi
             '';
 
-        home.activation.agentPluginsClaudeCode =
-          lib.hm.dag.entryAfter
-            [
-              "retrieveOpnixSecrets"
-              "writeBoundary"
-            ]
-            ''
-              if [ -n "''${DRY_RUN_CMD:-}" ]; then
-                echo "Skipping Claude Code plugin install during dry run"
-              elif ! ${agentOnline "api.anthropic.com"}; then
-                echo "Skipping Claude Code plugin install: api.anthropic.com unresolvable (offline)" >&2
-              else
-                ${lib.concatStringsSep "\n" (map claudePluginBlock agentPlugins)}
-              fi
-            '';
+        systemd.user.services.claude-code-plugins = {
+          Unit.Description = "Claude Code plugin install";
+          Service = {
+            Type = "oneshot";
+            ExecStart = lib.getExe claudePluginsInstall;
+          };
+          Install.WantedBy = [ "default.target" ];
+        };
 
         # Claude Code writes runtime state back into ~/.claude/settings.json, so
         # it cannot be a store symlink: merge only our keys and leave the rest
