@@ -12,6 +12,7 @@
 1password
 1password-cli
 claude-code
+claude-code-plugins-install
 Config.Net
 config.toml
 gamescope
