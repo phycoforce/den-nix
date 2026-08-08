@@ -2,11 +2,11 @@
   "nodes": {
     "den": {
       "locked": {
-        "lastModified": 1786099515,
-        "narHash": "sha256-YJbjTc8atIpbtgyY+L+L0lkKvLeWAf52LYakOEI8LkQ=",
+        "lastModified": 1786141890,
+        "narHash": "sha256-WD0GSNgFNVPAiuwN+qm0AWCUx+CtxGDOElzH7fr3eq4=",
         "owner": "denful",
         "repo": "den",
-        "rev": "49c7002f93fc907a85fc6713b2fc81ed8a4a9bf2",
+        "rev": "6cc4153ae863db77e082d0f1aa78524a10c95e67",
         "type": "github"
       },
       "original": {
@@ -303,11 +303,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786061077,
-        "narHash": "sha256-a8KdcFi/gIo+75FRHgMvr2WErg51BGtfNl5Nz64wz1I=",
+        "lastModified": 1786115669,
+        "narHash": "sha256-+UpdMASvCJgEejw4SZbhefk/9oboIDR2s8gezsYjulg=",
         "ref": "main",
-        "rev": "0ad7d80225c15aa9b6cac99e820bb34cee1256b6",
-        "revCount": 5109,
+        "rev": "e9230c81beb2513e4a4b09884f37e4f22fc246de",
+        "revCount": 5112,
         "type": "git",
         "url": "https://github.com/noctalia-dev/noctalia"
       },
