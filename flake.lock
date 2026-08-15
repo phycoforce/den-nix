@@ -200,11 +200,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786656209,
-        "narHash": "sha256-ybGtuwGKTUCefKYsplzvw4xcCqznto0c7BaiQhgILtA=",
+        "lastModified": 1786719456,
+        "narHash": "sha256-B74DLQs/VjlqyhnnX3tguWwghqJHWSJX30TKZuAljIg=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "c554d3441f725537854e877519f01cbd60680174",
+        "rev": "83b7606dcf44abe3a94b86e8bb2b3355d22e8797",
         "type": "github"
       },
       "original": {
@@ -319,11 +319,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786683576,
-        "narHash": "sha256-QmFLresv6PKtmLuMJPoboJlXtB30ouA19fyyz0VTWFw=",
+        "lastModified": 1786768968,
+        "narHash": "sha256-CGcrA5H0yPdzSrs/VuJGl+DfiAbQ0jJMnRiCsLklc2E=",
         "ref": "main",
-        "rev": "3118a1779b1e788d06cce4dd1a8c1a32584779fb",
-        "revCount": 5200,
+        "rev": "2cf844d068116681a022fe4d2aaceb84db947d95",
+        "revCount": 5219,
         "type": "git",
         "url": "https://github.com/noctalia-dev/noctalia"
       },
