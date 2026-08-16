@@ -101,8 +101,9 @@ jobs:
           set -euo pipefail
           cachix push phycoforce "$TOPLEVEL_OUT"
           # Rollback safety: cachix GC is LRU by last access and the desktop
-          # never re-fetches what it has, so pin two generations out of it.
-          cachix pin phycoforce temperantia "$TOPLEVEL_OUT" --keep-revisions 2 \
+          # never re-fetches what it has, so pin the latest closure out of it.
+          # One revision: two pinned ~2.7 GB revisions brush the 5 GB tier.
+          cachix pin phycoforce temperantia "$TOPLEVEL_OUT" --keep-revisions 1 \
             || echo "::warning::cachix pin failed (non-fatal)"
           # Verify rather than trust the push: a read-only CACHIX_AUTH_TOKEN
           # would silently turn this into a lock-bumper that warms nothing.
