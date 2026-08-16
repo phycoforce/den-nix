@@ -200,11 +200,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786719456,
-        "narHash": "sha256-B74DLQs/VjlqyhnnX3tguWwghqJHWSJX30TKZuAljIg=",
+        "lastModified": 1786826571,
+        "narHash": "sha256-nNqmXIFmESRnU91KARtiekSox0+o+E3AS0d1TuUQ/9o=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "83b7606dcf44abe3a94b86e8bb2b3355d22e8797",
+        "rev": "c8058ecc1329a71a3c99c4d0353dba4009a66152",
         "type": "github"
       },
       "original": {
@@ -319,11 +319,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786768968,
-        "narHash": "sha256-CGcrA5H0yPdzSrs/VuJGl+DfiAbQ0jJMnRiCsLklc2E=",
+        "lastModified": 1786848140,
+        "narHash": "sha256-PqESiwWHWmghLYhZJ9vFDKvqRQ3Zu8F0j8XDjFqNBHo=",
         "ref": "main",
-        "rev": "2cf844d068116681a022fe4d2aaceb84db947d95",
-        "revCount": 5219,
+        "rev": "abb75a06326d708b85a7ebe1f390ee8b8fd1c0f8",
+        "revCount": 5259,
         "type": "git",
         "url": "https://github.com/noctalia-dev/noctalia"
       },
@@ -341,11 +341,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779201624,
-        "narHash": "sha256-UwDxtB3D42/OW1kIp/OHoVPlJnoWrRK5E/KbX4yrbPA=",
+        "lastModified": 1786819089,
+        "narHash": "sha256-yEJjTkV40HvkMLvbIQULCLG+Ne/lragLR0Yts+uHj84=",
         "owner": "brizzbuzz",
         "repo": "opnix",
-        "rev": "35344e1cfd060d4af249c8075a4aa58b7650ab95",
+        "rev": "2bb1b1dd4c7b7676ccd4b649b26284eff46d47bb",
         "type": "github"
       },
       "original": {
