@@ -319,11 +319,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787272040,
-        "narHash": "sha256-YZxcF28MvmXOVt1sq0lXddgYVIj/5exDh0vztl/vIvw=",
+        "lastModified": 1787369379,
+        "narHash": "sha256-1WUdzP3Y9l95gRhn8muREP0UJu8PmvzEHmdIyfaYRac=",
         "ref": "main",
-        "rev": "791e557417ceeba0e57562af2ddcbd3d8b93f62a",
-        "revCount": 5308,
+        "rev": "7fd9f7bfa9604022b9de311b30a3da0c2c4415de",
+        "revCount": 5310,
         "type": "git",
         "url": "https://github.com/noctalia-dev/noctalia"
       },
