@@ -146,6 +146,14 @@ jobs:
           echo "could not land flake.lock on main after 3 attempts" >&2
           exit 1
 
+      - name: Surface held inputs
+        # A hold-everything day lands no commit, so the classified reasons in
+        # commit-message.txt would otherwise never leave this run's log.
+        if: always() && steps.update.outputs.held != '0' && steps.update.outputs.held != ''
+        run: |
+          set -euo pipefail
+          awk '/^held:/ {print "::warning::" $0}' "$RUNNER_TEMP/commit-message.txt"
+
       - name: Job summary
         if: always()
         run: |

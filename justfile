@@ -183,9 +183,6 @@ status:
     ckn="$(jq -r --arg n "$ck" '.nodes[$n].inputs.nixpkgs' flake.lock)"
     printf '   cachyos-kernel %s  %s  (%sd)  inner nixpkgs %s (its own pin - by design)\n' \
       "$(lock "$ck" rev | cut -c1-12)" "$(date -d @"$(lock "$ck" lastModified)" +%F)" "$(age_of "$(lock "$ck" lastModified)")" "$(lock "$ckn" rev | cut -c1-12)"
-    noc="$(jq -r '.nodes.root.inputs.noctalia // empty' flake.lock)"
-    [ -n "$noc" ] && printf '   noctalia       %s  %s  main; HM module only (package comes from nixpkgs)\n' \
-      "$(lock "$noc" rev | cut -c1-12)" "$(date -d @"$(lock "$noc" lastModified)" +%F)"
     echo "== reachability =="
     for sub in https://cache.nixos.org https://cache.xinux.uz https://attic.xuyh0120.win/lantian https://nix-community.cachix.org https://phycoforce.cachix.org; do
       t="$( { time -p curl -m 5 -s -o /dev/null "$sub/nix-cache-info"; } 2>&1 | awk '/^real/ {print $2"s"}' )" \
@@ -205,6 +202,14 @@ status:
       echo "   ci.yml (main):   $(gh run list --workflow ci.yml --branch main --limit 1 --json conclusion,createdAt --jq '.[0] | "\(.conclusion // "running") \(.createdAt)"' 2>/dev/null || echo unknown)"
     else
       echo "   gh not installed - CI state unknown"
+    fi
+    # A green run can still hold inputs, and a hold-everything day lands no
+    # commit - so these lines come from the newest LANDED lock commit, dated
+    # to keep a stale hold from reading as today's.
+    held="$(git log origin/main --grep='chore(lock)' -1 --format=%b 2>/dev/null | grep '^held:' || true)"
+    if [ -n "$held" ]; then
+      when="$(git log origin/main --grep='chore(lock)' -1 --format=%cr 2>/dev/null || true)"
+      sed "s/^/   updater (lock commit ${when:-unknown age}) /" <<<"$held"
     fi
     just lock-age || true
 

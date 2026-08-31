@@ -87,23 +87,50 @@ bump() { # bump <lockfile-out-of-band-log> <inputs...>; fails on rate-limit lies
   fi
 }
 
+gate_reason() { # gate_reason <plan-gate-stderr>: one classified line for hold()
+  local err="$1" pnames
+  if grep -q '^!! plan-gate: evaluation failed' "$err"; then
+    echo "eval failed"
+  elif grep -qE '^!! VIOLATION: .* would compile locally' "$err"; then
+    pnames="$(sed -nE 's/^!! VIOLATION: ([^ ]+) would compile locally.*/\1/p' "$err" | sort -u | tr '\n' ' ')"
+    echo "blocked: ${pnames% }"
+  elif grep -qE '^!! VIOLATION: .* is a NEW unserved local build' "$err"; then
+    pnames="$(sed -nE 's/^!! VIOLATION: ([^ ]+) is a NEW unserved local build.*/\1/p' "$err" | sort -u | tr '\n' ' ')"
+    echo "baseline-stale: ${pnames% } - never self-heals; baseline or classifier needs the pname"
+  elif grep -q '32-bit builds (cap' "$err"; then
+    echo "i686 over cap"
+  else
+    echo "gate failed (see run log)"
+  fi
+}
+
 gate() { # gate <label>; uses the CURRENT worktree lock
-  local label="$1"
+  local label="$1" rc=0
   echo ">> gate [$label]: plan-gate"
-  "$SCRIPT_DIR/plan-gate.sh" || return "$?"
+  # stderr rides through a file so a hold gets a classified reason instead of
+  # "see log above" in a commit body that has no log; replayed right after.
+  "$SCRIPT_DIR/plan-gate.sh" 2>"$workdir/gate.err" || rc=$?
+  cat "$workdir/gate.err" >&2
+  if [ "$rc" -ne 0 ]; then
+    gate_reason "$workdir/gate.err" >"$workdir/gate-reason"
+    return "$rc"
+  fi
   # flake.nix is generated and a bump can change its codegen: regenerate now so
   # the change rides in the same commit and check-generated stays green.
   echo ">> gate [$label]: write-flake regeneration"
-  nix run .#write-flake "${NIX_FLAGS[@]}" >/dev/null || return 1
+  nix run .#write-flake "${NIX_FLAGS[@]}" >/dev/null \
+    || { echo "write-flake regeneration failed" >"$workdir/gate-reason"; return 1; }
   if [ "$MODE" = "ci" ]; then
     # This lock lands on main via a GITHUB_TOKEN push, which cannot trigger
     # ci.yml - so every gate ci.yml would run must run HERE or nowhere.
     echo ">> gate [$label]: nix flake check"
-    nix flake check "${NIX_FLAGS[@]}" || return 1
+    nix flake check "${NIX_FLAGS[@]}" || { echo "flake check failed" >"$workdir/gate-reason"; return 1; }
     echo ">> gate [$label]: fmt-check"
-    git ls-files -z '*.nix' | xargs -0 nix "${NIX_FLAGS[@]}" fmt -- --check || return 1
+    git ls-files -z '*.nix' | xargs -0 nix "${NIX_FLAGS[@]}" fmt -- --check \
+      || { echo "fmt-check failed" >"$workdir/gate-reason"; return 1; }
     echo ">> gate [$label]: lint (pre-commit checks)"
-    nix build .#checks.x86_64-linux.pre-commit "${NIX_FLAGS[@]}" || return 1
+    nix build .#checks.x86_64-linux.pre-commit "${NIX_FLAGS[@]}" \
+      || { echo "lint failed" >"$workdir/gate-reason"; return 1; }
   fi
 }
 
@@ -152,7 +179,7 @@ else
       if [ "$rc" -eq 0 ]; then
         RESULT[$i]=kept; NEWREV[$i]="$(rev_of "$i" flake.lock)"; cp -p flake.lock "$good"
       else
-        hold "gate failed (see log above)" "$i"
+        hold "$(cat "$workdir/gate-reason" 2>/dev/null || echo "gate failed (see run log)")" "$i"
       fi
     done
     # --- grouped retry of the held set: coupled inputs pass together -------
@@ -227,5 +254,8 @@ if [ "$MODE" = "ci" ]; then
   } >"${RUNNER_TEMP:-$workdir}/commit-message.txt"
   if [ -n "${GITHUB_OUTPUT:-}" ]; then
     echo "changed=$changed" >>"$GITHUB_OUTPUT"
+    # A hold-everything day lands no commit, so the workflow must surface the
+    # classified reasons itself or they never leave this run's log.
+    echo "held=$(grep -c '^held' "$summary" || true)" >>"$GITHUB_OUTPUT"
   fi
 fi

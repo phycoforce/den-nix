@@ -42,12 +42,17 @@
         pkgs.lib.versionAtLeast temperantiaPkgs.claude-code.version "2.1.219"
       );
 
-      # The noctalia flake input exists only for its HM module; an import
-      # reshuffle restoring its own mkDefault package would resurrect the
-      # private-universe/local-compile problem, and (since the nixpkgs attr is
-      # v5-only) a v4 comeback whose IPC syntax breaks every keybind.
+      # programs.noctalia comes from home-manager upstream (the noctalia flake
+      # input was dropped 2026-08); the package must stay the host's
+      # Hydra-cached nixpkgs build, never a private-universe local compile.
       checks.noctalia-package-from-nixpkgs = checkCond "noctalia-package-from-nixpkgs" (
         aaron-at-temperantia.programs.noctalia.package.outPath == temperantiaPkgs.noctalia.outPath
+      );
+
+      # A v4 comeback would break every `noctalia msg` keybind in
+      # _home/niri.nix (v5 changed the IPC syntax).
+      checks.noctalia-v5 = checkCond "noctalia-v5" (
+        pkgs.lib.versionAtLeast temperantiaPkgs.noctalia.version "5"
       );
 
       # Root cause of the daily re-login: the claude CLI launched from
