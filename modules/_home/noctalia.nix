@@ -25,8 +25,8 @@ in
   programs.noctalia = {
     enable = true;
 
-    # Hydra-cached nixpkgs build; overrides the flake module's mkDefault so the
-    # input's own package thunk is never evaluated.
+    # HM's default is already pkgs.noctalia; kept explicit so a module-default
+    # change upstream cannot silently move the package off the Hydra cache.
     package = pkgs.noctalia;
 
     # Runtime tweaks made in the settings UI land in

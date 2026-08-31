@@ -200,11 +200,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787379775,
-        "narHash": "sha256-XL2qfqmocfsvuEGyomZg4nOZfkuSe8vZtrOX99I+b6I=",
+        "lastModified": 1788146656,
+        "narHash": "sha256-XmJmvk9rytTb7dCotO/aqR+YysB8HOqnprlOdv+LAF4=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "ec1a8fdf74ed3f276148ee106299a2ba0e65d51f",
+        "rev": "82c265faf4e3161d6015db07c9b0f1ee36a9029b",
         "type": "github"
       },
       "original": {
@@ -312,27 +312,6 @@
         "type": "github"
       }
     },
-    "noctalia": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1787540539,
-        "narHash": "sha256-q6ewgZm6eAgdHWIaOV+dwR5/x711AfDUsao3nQ/CdyA=",
-        "ref": "main",
-        "rev": "a4324409f4f07001d33fbf902be49377ee6b62e2",
-        "revCount": 5317,
-        "type": "git",
-        "url": "https://github.com/noctalia-dev/noctalia"
-      },
-      "original": {
-        "ref": "main",
-        "type": "git",
-        "url": "https://github.com/noctalia-dev/noctalia"
-      }
-    },
     "opnix": {
       "inputs": {
         "flake-utils": "flake-utils",
@@ -388,7 +367,6 @@
         "nix-cachyos-kernel": "nix-cachyos-kernel",
         "nix-flatpak": "nix-flatpak",
         "nixpkgs": "nixpkgs_2",
-        "noctalia": "noctalia",
         "opnix": "opnix",
         "qylock": "qylock"
       }
