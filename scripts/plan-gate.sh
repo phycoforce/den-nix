@@ -15,10 +15,12 @@
 #   3. Probe every remaining output against every substituter (narinfo); a
 #      path any substituter serves is never a violation.
 #   4. What survives is an unserved local build: BLOCK pnames always fail,
-#      i686 rows are policy-tolerated up to PLAN_GATE_MAX_I686 (Hydra never
-#      builds this host's full 32-bit set; only third-party caches serve it
-#      incidentally, at revs of their choosing), baseline pnames are
-#      tolerated, anything else is a violation.
+#      trivial builders (inline buildCommand, no source, compiler-less
+#      stdenv) are dropped as cheap by construction, i686 rows are
+#      policy-tolerated up to PLAN_GATE_MAX_I686 (Hydra never builds this
+#      host's full 32-bit set; only third-party caches serve it incidentally,
+#      at revs of their choosing), baseline pnames are tolerated, anything
+#      else is a violation.
 #
 # Knobs:
 #   --cold                 plan against a throwaway empty store so the gate
@@ -233,19 +235,33 @@ fi
 # Schema v4 (nix 2.34): top level is {"derivations": {...}}, keys and output
 # paths are store-RELATIVE, and xargs may split large sets into several
 # invocations -> slurp and merge.
-# .system rides along as a 4th column so stage 3 can apply the 32-bit policy.
+# .system rides along as a 4th column so stage 3 can apply the 32-bit policy;
+# .triv as a 5th (stage 3 explains it). Attrs are read from plain env AND
+# structuredAttrs - nixpkgs defaults many packages to the latter, where every
+# .env key is null and an env-only test silently never fires. The store-path
+# anchor on stdenv is load-bearing twice: it keeps bootstrap-stage stdenvs
+# from matching (the bootstrap guard above must keep firing) and refuses an
+# absent stdenv (stage0 seeds carry buildCommand with no stdenv attr).
 jq -rs '
   ([.[] | .derivations // {}] | add // {}) | to_entries[] |
+  (.value.env // {}) as $e | (.value.structuredAttrs // {}) as $s |
   {drv: .key,
    out: ((.value.outputs.out.path // (.value.outputs | to_entries[0].value.path)) // ""),
    sys: (.value.system // ""),
    fod: ([.value.outputs[]? | has("hash")] | any),
-   local: ((.value.env.preferLocalBuild? == "1") or (.value.env.allowSubstitutes? == "")
-           or (.value.structuredAttrs.preferLocalBuild? == true)
-           or (.value.structuredAttrs.allowSubstitutes? == false)
-           or ((.value.env.__json? // "{}" | fromjson? // {})
-               | (.preferLocalBuild == true or .allowSubstitutes == false)))} |
-  [.drv, .out, (if .fod then "fod" elif .local then "local" else "check" end), .sys] | @tsv
+   local: (($e.preferLocalBuild? == "1") or ($e.allowSubstitutes? == "")
+           or ($s.preferLocalBuild? == true)
+           or ($s.allowSubstitutes? == false)
+           or (($e.__json? // "{}" | fromjson? // {})
+               | (.preferLocalBuild == true or .allowSubstitutes == false))),
+   triv: ((($e.buildCommand // $s.buildCommand) != null)
+          and ((($e.src // $s.src // "") | tostring) == "")
+          and ((($e.srcs // $s.srcs // "") | tostring) == "")
+          and ((.value.outputs | length) == 1)
+          and ((($e.stdenv // $s.stdenv // "") | tostring)
+               | test("^/nix/store/[0-9a-z]{32}-stdenv-[a-z0-9]+-no-cc$")))} |
+  [.drv, .out, (if .fod then "fod" elif .local then "local" else "check" end),
+   .sys, (if .triv then "trivial" else "-" end)] | @tsv
 ' "$workdir/drvs.json" >"$workdir/classified"
 
 # Every BUILD derivation must be accounted for: nix reshaped this schema once
@@ -266,6 +282,7 @@ fod_count="$(awk -F'\t' '$3=="fod"' "$workdir/classified" | wc -l)"
 # empty field would shift every subsequent field's meaning.
 awk -F'\t' '$3=="check" && $2==""  {print $1}' "$workdir/classified" >"$workdir/unprobeable"
 awk -F'\t' '$3=="check" && $2!=""  {print $1 "\t" $2 "\t" $4}' "$workdir/classified" >"$workdir/to-probe"
+awk -F'\t' '$5=="trivial" {print $1}' "$workdir/classified" >"$workdir/trivial-drvs"
 
 violations=0
 if [ -s "$workdir/unprobeable" ]; then
@@ -321,6 +338,7 @@ pname_of() {
 
 config_artifacts=0
 tolerated=()
+trivial_names=()
 i686_tolerated=()
 unserved_pnames=()
 while IFS=$'\t' read -r _ drv out sys; do
@@ -335,9 +353,6 @@ while IFS=$'\t' read -r _ drv out sys; do
     config_artifacts=$((config_artifacts + 1))
     continue
   fi
-  # i686 rows stay out of the baseline: a pname key cannot tell an i686
-  # derivation from its x86_64 twin, and the policy arm below covers them.
-  [ "$sys" = "i686-linux" ] || unserved_pnames+=("$pname")
   blocked_hint=""
   for entry in "${BLOCK_PATTERNS[@]}"; do
     pat="${entry%%|*}"
@@ -350,7 +365,22 @@ while IFS=$'\t' read -r _ drv out sys; do
     echo "   expected from: $blocked_hint" >&2
     echo "   output: $out" >&2
     violations=$((violations + 1))
-  elif [ "$sys" = "i686-linux" ]; then
+    continue
+  fi
+  # Trivial builder: the whole build is one inline shell snippet under a
+  # compiler-less stdenv with no source - cheap by construction, whatever it
+  # is named, and every dependency is its own BUILD row. BLOCK stays FIRST:
+  # llvm-src/clang-src/niri-<v>-vendor match this shape yet are the
+  # mid-toolchain-rebuild tripwire (deliberately the OPPOSITE order of the
+  # regex classes above).
+  if grep -qxF "$drv" "$workdir/trivial-drvs"; then
+    trivial_names+=("$pname")
+    continue
+  fi
+  # i686 rows stay out of the baseline: a pname key cannot tell an i686
+  # derivation from its x86_64 twin, and the policy arm below covers them.
+  [ "$sys" = "i686-linux" ] || unserved_pnames+=("$pname")
+  if [ "$sys" = "i686-linux" ]; then
     i686_tolerated+=("$pname")
   elif [ "$WRITE_BASELINE" -eq 0 ] && [ -f "$BASELINE" ] && grep -qxF "$pname" "$BASELINE"; then
     tolerated+=("$pname")
@@ -415,7 +445,11 @@ fi
 
 echo ">> plan-gate: $fetch_count fetched ${download:+$download }| $build_count to build:" \
   "$local_policy_count local-by-policy, $fod_count source-fetches, $served_count cache-served," \
-  "$config_artifacts config-artifacts, ${#i686_tolerated[@]} i686-tolerated, ${#tolerated[@]} tolerated, $violations violations."
+  "$config_artifacts config-artifacts, ${#trivial_names[@]} trivial-builders," \
+  "${#i686_tolerated[@]} i686-tolerated, ${#tolerated[@]} tolerated, $violations violations."
+if [ "${#trivial_names[@]}" -gt 0 ]; then
+  echo "   trivial-builders (inline buildCommand, no source, no compiler; builds at switch in seconds): $(printf '%s ' "${trivial_names[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+fi
 if [ "${#i686_tolerated[@]}" -gt 0 ]; then
   echo "   i686-tolerated (32-bit, unserved by policy; compiles at switch): $(printf '%s ' "${i686_tolerated[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
 fi
