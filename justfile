@@ -203,6 +203,14 @@ status:
     else
       echo "   gh not installed - CI state unknown"
     fi
+    # A green run can still hold inputs, and a hold-everything day lands no
+    # commit - so these lines come from the newest LANDED lock commit, dated
+    # to keep a stale hold from reading as today's.
+    held="$(git log origin/main --grep='chore(lock)' -1 --format=%b 2>/dev/null | grep '^held:' || true)"
+    if [ -n "$held" ]; then
+      when="$(git log origin/main --grep='chore(lock)' -1 --format=%cr 2>/dev/null || true)"
+      sed "s/^/   updater (lock commit ${when:-unknown age}) /" <<<"$held"
+    fi
     just lock-age || true
 
 [doc("Recent updater + CI runs")]
