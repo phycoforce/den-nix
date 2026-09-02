@@ -106,9 +106,9 @@ in
         templates = {
           # Each id rewrites that app's own theme file; the counterpart that
           # selects it lives elsewhere: niri/noctalia.kdl (_home/niri.nix),
-          # starship palette markers (_home/core.nix), and two UNMANAGED files
-          # — `theme = noctalia` in ~/.config/ghostty/config and gtk.css's
-          # @import of noctalia.css. "qt" stays off deliberately: with
+          # starship palette markers (_home/core.nix), `theme = noctalia` in
+          # _home/ghostty.nix, and one UNMANAGED file — gtk.css's @import of
+          # noctalia.css. "qt" stays off deliberately: with
           # QT_QPA_PLATFORMTHEME=gtk3, Qt apps read the gtk3/gtk4 output and
           # the qt5ct/qt6ct files would never be looked at.
           builtin_ids = [

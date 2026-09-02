@@ -6,6 +6,7 @@ _: {
     ];
 
     homeManager.imports = [
+      ./_home/ghostty.nix
       ./_home/niri.nix
       ./_home/noctalia.nix
     ];
