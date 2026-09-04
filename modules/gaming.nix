@@ -86,7 +86,7 @@
           lutris
           mangohud
           umu-launcher
-          wineWow64Packages.wayland
+          wineWow64Packages.stagingFull
           winetricks
           xivlauncher
         ];
