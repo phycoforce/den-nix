@@ -84,6 +84,19 @@
       alsa.support32Bit = true;
       jack.enable = true;
       pulse.enable = true;
+      # Default pins the graph to 48 kHz; let it follow the stream's native rate (K15: 44.1k-768k).
+      extraConfig.pipewire."92-allowed-rates"."context.properties"."default.clock.allowed-rates" = [
+        44100
+        48000
+        88200
+        96000
+        176400
+        192000
+        352800
+        384000
+        705600
+        768000
+      ];
     };
     power-profiles-daemon.enable = true;
     printing = {
