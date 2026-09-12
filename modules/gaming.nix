@@ -32,6 +32,7 @@
             glfw
             gst_all_1.gst-plugins-base
             libjpeg_turbo
+            libsecret
             libva
             libxslt
             mpg123
