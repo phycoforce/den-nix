@@ -86,6 +86,7 @@
           heroic
           lutris
           mangohud
+          r2modman
           umu-launcher
           wineWow64Packages.stagingFull
           winetricks
