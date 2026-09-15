@@ -32,7 +32,9 @@
 
         claudeCode = pkgs.claude-code;
         claudeBin = "${claudeCode}/bin/claude";
+        codexBin = "${pkgs.codex}/bin/codex";
         opencodeBin = "${pkgs.opencode}/bin/opencode";
+        remarshalBin = "${pkgs.remarshal}/bin/remarshal";
 
         # Sourced by every agent wrapper and by the activation steps below, so
         # MCP secrets stay out of the Nix store and out of the session
@@ -113,11 +115,16 @@
         #   urlEnv     same URL in OpenCode's `{env:VAR}` syntax
         #   needs      loader vars that must be non-empty, else skip with a
         #              warning rather than register a half-resolved URL
-        #   headers    OpenCode only (the Claude Code jq adapter renders just
-        #              type+url and asserts no headers sneak past it)
+        #   bearerEnv  loader var holding the bearer token (Codex
+        #              bearer_token_env_var; OpenCode renders an
+        #              Authorization header from it)
+        #   headersEnv header name -> loader var supplying its value
         #   agents     front-ends to register with; default all
+        # The Claude Code jq adapter renders just type+url and asserts no auth
+        # fields sneak past it.
         allAgents = [
           "claude-code"
+          "codex"
           "opencode"
         ];
         mcpServers = {
@@ -135,19 +142,22 @@
           };
           memini = {
             # Claude Code gets Memini from the plugin below (which ships its
-            # own MCP server), so only other front-ends register it here.
-            agents = [ "opencode" ];
+            # own MCP server). The Codex plugin's bundled server has a static
+            # localhost URL (Codex expands no env in plugin MCP URLs), so it is
+            # disabled via codexPluginOverridesJson and registered here instead.
+            agents = [
+              "codex"
+              "opencode"
+            ];
             transport = "http";
             needs = [
               "MEMINI_MCP_URL"
-              "MEMINI_TOKEN"
+              "MEMINI_API_KEY"
             ];
             url = "$MEMINI_MCP_URL";
             urlEnv = "{env:MEMINI_MCP_URL}";
-            headers = {
-              Authorization = "Bearer {env:MEMINI_TOKEN}";
-              "X-Memini-Namespace" = "{env:MEMINI_NAMESPACE}";
-            };
+            bearerEnv = "MEMINI_API_KEY";
+            headersEnv."X-Memini-Namespace" = "MEMINI_NAMESPACE";
           };
           nixos = {
             transport = "stdio";
@@ -162,14 +172,21 @@
           agent: lib.filterAttrs (_: srv: lib.elem agent (srv.agents or allAgents)) mcpServers;
 
         # Plugins are installed by the agent's own CLI, so this is an
-        # install-if-missing list rather than declarative state.
+        # install-if-missing list rather than declarative state. `id` is
+        # <plugin>@<marketplace name> for both Claude Code and Codex.
         agentPlugins = [
           {
             id = "memini@memini";
             plugin = "memini";
             marketplace = "https://github.com/eleboucher/memini";
+            agents = [
+              "claude-code"
+              "codex"
+            ];
           }
         ];
+        agentPluginsFor = agent: lib.filter (p: lib.elem agent p.agents) agentPlugins;
+        pluginMarketplaceName = p: lib.last (lib.splitString "@" p.id);
 
         mkAgentWrapper =
           {
@@ -190,6 +207,13 @@
           name = "claude";
           program = claudeBin;
           env.FORCE_AUTOUPDATE_PLUGINS = "1";
+        };
+
+        # CODEX_HOME stays at its ~/.codex default; the config merge and the
+        # plugin gate below assume it.
+        codexWrapper = mkAgentWrapper {
+          name = "codex";
+          program = codexBin;
         };
 
         opencodeWrapper = mkAgentWrapper {
@@ -235,67 +259,119 @@
           }) (lib.filterAttrs (_: srv: srv.transport == "stdio") claudeMcpServers)
         );
         # The jq adapter renders only {type, url}; assert rather than silently
-        # drop auth headers on a future claude-code http server.
+        # drop auth fields on a future claude-code http server.
         claudeMcpHttp =
           let
             http = lib.filterAttrs (_: srv: srv.transport == "http") claudeMcpServers;
           in
-          assert lib.all (srv: !(srv ? headers)) (lib.attrValues http);
+          assert lib.all (srv: !(srv ? bearerEnv) && !(srv ? headersEnv)) (lib.attrValues http);
           http;
         # Registry names become shell/jq identifiers; constrain the charset
         # (and, below, uniqueness after s/-/_/) at eval time.
-        claudeMcpJqVar =
+        mcpJqVar =
           name:
           assert builtins.match "[A-Za-z0-9_-]+" name != null;
           "url_${lib.replaceStrings [ "-" ] [ "_" ] name}";
-        claudeMcpJqRef = name: "$" + claudeMcpJqVar name;
-        claudeMcpUrlGuard =
-          name: srv:
+        mcpJqRef = name: "$" + mcpJqVar name;
+        mcpUrlGuard =
+          agent: name: srv:
           let
             needs = srv.needs or [ ];
             # Double quotes, not escapeShellArg: the shell must expand the
             # loader variables inside the URL.
-            assign = ''${claudeMcpJqVar name}="${srv.url}"'';
+            assign = ''${mcpJqVar name}="${srv.url}"'';
           in
           if needs == [ ] then
             assign
           else
             ''
-              ${claudeMcpJqVar name}=""
+              ${mcpJqVar name}=""
               if ${lib.concatMapStringsSep " && " (v: "[ -n \"\${${v}:-}\" ]") needs}; then
                 ${assign}
               else
-                echo "WARNING: skipping ${name} MCP for Claude Code (unset ${lib.concatStringsSep ", " needs})" >&2
+                echo "WARNING: skipping ${name} MCP for ${agent} (unset ${lib.concatStringsSep ", " needs})" >&2
               fi
             '';
-        # A skipped http server (needs unmet) keeps its old entry; only keys we
-        # previously managed AND that left the registry are pruned. Unmanaged
-        # keys (user-added servers, oauth/project state) are never touched.
-        claudeMcpJqProgram = ''
-          ($prev - $names) as $stale
-          | .mcpServers = (
-              ((.mcpServers // {}) | with_entries(select(.key as $k | $stale | index($k) | not)))
-              + $stdio${
-                lib.concatStrings (
-                  lib.mapAttrsToList (
-                    name: _:
-                    "\n    + (if ${claudeMcpJqRef name} == \"\" then {} else {${builtins.toJSON name}: {type: \"http\", url: ${claudeMcpJqRef name}}} end)"
-                  ) claudeMcpHttp
-                )
-              }
-            )
-        '';
-        claudeMcpJqArgs =
+        mcpUrlGuards = agent: http: lib.concatStringsSep "\n" (lib.mapAttrsToList (mcpUrlGuard agent) http);
+        mcpJqArgs =
+          http:
           let
-            vars = lib.mapAttrsToList (name: _: claudeMcpJqVar name) claudeMcpHttp;
+            vars = lib.mapAttrsToList (name: _: mcpJqVar name) http;
           in
           assert vars == lib.unique vars;
           lib.concatStringsSep " " (
-            lib.mapAttrsToList (
-              name: _: "--arg ${claudeMcpJqVar name} \"${claudeMcpJqRef name}\""
-            ) claudeMcpHttp
+            lib.mapAttrsToList (name: _: "--arg ${mcpJqVar name} \"${mcpJqRef name}\"") http
           );
+        # A skipped http server (needs unmet) keeps its old entry; only keys we
+        # previously managed AND that left the registry are pruned. Unmanaged
+        # keys (user-added servers, oauth/project state) are never touched.
+        # `render` gives the jq expression for a http server's entry.
+        mcpJqMerge =
+          {
+            key,
+            http,
+            render,
+          }:
+          ''
+            ($prev - $names) as $stale
+            | .${key} = (
+                ((.${key} // {}) | with_entries(select(.key as $k | $stale | index($k) | not)))
+                + $stdio${
+                  lib.concatStrings (
+                    lib.mapAttrsToList (
+                      name: _:
+                      "\n    + (if ${mcpJqRef name} == \"\" then {} else {${builtins.toJSON name}: ${render name}} end)"
+                    ) http
+                  )
+                }
+              )
+          '';
+        claudeMcpJqProgram = mcpJqMerge {
+          key = "mcpServers";
+          http = claudeMcpHttp;
+          render = name: "{type: \"http\", url: ${mcpJqRef name}}";
+        };
         claudeManagedStateFile = "${config.xdg.stateHome}/agent-mcp/claude-managed-servers.json";
+
+        # Codex gets the same merge into the mcp_servers table of
+        # ~/.codex/config.toml (remarshal round-trips TOML through JSON):
+        # codex's own writes — plugin installs, project trust, model choice —
+        # share that file and must survive.
+        codexMcpServers = mcpServersFor "codex";
+        codexMcpNamesJson = builtins.toJSON (lib.attrNames codexMcpServers);
+        codexMcpStdioJson = builtins.toJSON (
+          lib.mapAttrs (_: srv: {
+            command = builtins.head srv.command;
+            args = builtins.tail srv.command;
+          }) (lib.filterAttrs (_: srv: srv.transport == "stdio") codexMcpServers)
+        );
+        codexMcpHttp = lib.filterAttrs (_: srv: srv.transport == "http") codexMcpServers;
+        # Static fields per http server; the URL joins them at activation.
+        codexMcpHttpJson = builtins.toJSON (
+          lib.mapAttrs (
+            _: srv:
+            lib.optionalAttrs (srv ? bearerEnv) { bearer_token_env_var = srv.bearerEnv; }
+            // lib.optionalAttrs (srv ? headersEnv) { env_http_headers = srv.headersEnv; }
+          ) codexMcpHttp
+        );
+        # Each plugin's bundled MCP server (named after the plugin) is disabled
+        # in favour of the registry entry; the config key is <plugin>@<market>,
+        # which is why memini's README form `plugins.memini` would be ignored.
+        codexPluginOverridesJson = builtins.toJSON (
+          lib.listToAttrs (
+            map (p: lib.nameValuePair p.id { mcp_servers.${p.plugin}.enabled = false; }) (
+              agentPluginsFor "codex"
+            )
+          )
+        );
+        codexMcpJqProgram =
+          mcpJqMerge {
+            key = "mcp_servers";
+            http = codexMcpHttp;
+            render = name: "($http[${builtins.toJSON name}] + {url: ${mcpJqRef name}})";
+          }
+          + "| .plugins = ((.plugins // {}) * $plugins)";
+        codexManagedStateFile = "${config.xdg.stateHome}/agent-mcp/codex-managed-servers.json";
 
         # Plugin install genuinely needs the network and the claude CLI; it
         # runs from a user service, exits before any CLI launch when nothing
@@ -328,7 +404,7 @@
                 if ${pluginMissing p}; then
                   missing=1
                 fi
-              '') agentPlugins}
+              '') (agentPluginsFor "claude-code")}
               if [ "$missing" -eq 0 ]; then
                 exit 0
               fi
@@ -341,9 +417,62 @@
                 fi
                 sleep 5
               done
-              ${lib.concatMapStrings install agentPlugins}
+              ${lib.concatMapStrings install (agentPluginsFor "claude-code")}
             '';
         };
+
+        # Same shape for Codex. `codex plugin` needs no login, but the CLI still
+        # stays out of activation; the gate is the plugin's install root.
+        codexPluginsInstall = pkgs.writeShellApplication {
+          name = "codex-plugins-install";
+          runtimeInputs = with pkgs; [
+            coreutils
+            curl
+            git
+          ];
+          text =
+            let
+              plugins = agentPluginsFor "codex";
+              installRoot = p: "$HOME/.codex/plugins/cache/${pluginMarketplaceName p}/${p.plugin}";
+              install = p: ''
+                if [ ! -d "${installRoot p}" ]; then
+                  ${codexBin} plugin marketplace add ${lib.escapeShellArg p.marketplace} >/dev/null
+                  ${codexBin} plugin add ${lib.escapeShellArg p.id} >/dev/null
+                fi
+              '';
+            in
+            ''
+              missing=0
+              ${lib.concatMapStrings (p: ''
+                if [ ! -d "${installRoot p}" ]; then
+                  missing=1
+                fi
+              '') plugins}
+              if [ "$missing" -eq 0 ]; then
+                exit 0
+              fi
+              tries=24
+              until curl -s -o /dev/null --max-time 5 https://github.com/; do
+                tries=$((tries - 1))
+                if [ "$tries" -le 0 ]; then
+                  echo "github.com unreachable; leaving Codex plugin install for next login" >&2
+                  exit 0
+                fi
+                sleep 5
+              done
+              ${lib.concatMapStrings install plugins}
+            '';
+        };
+
+        # Codex has no plugin auto-update: re-adding an installed plugin
+        # reinstalls it from the refreshed marketplace snapshot.
+        codexPluginsUpdate = pkgs.writeShellScriptBin "codex-plugins-update" ''
+          set -eu
+          ${codexBin} plugin marketplace upgrade
+          ${lib.concatMapStrings (p: "${codexBin} plugin add ${lib.escapeShellArg p.id}\n") (
+            agentPluginsFor "codex"
+          )}
+        '';
 
         # OpenCode is fully declarative: the MCP block is a generated file.
         opencodeMcpConfig = lib.mapAttrs (
@@ -362,9 +491,11 @@
               enabled = true;
               timeout = 30000;
             }
-            // lib.optionalAttrs (srv ? headers) {
+            // lib.optionalAttrs (srv ? bearerEnv || srv ? headersEnv) {
               oauth = false;
-              inherit (srv) headers;
+              headers =
+                lib.optionalAttrs (srv ? bearerEnv) { Authorization = "Bearer {env:${srv.bearerEnv}}"; }
+                // lib.mapAttrs (_: v: "{env:${v}}") (srv.headersEnv or { });
             }
         ) (mcpServersFor "opencode");
       in
@@ -380,7 +511,7 @@
                 echo "Skipping Claude Code MCP wiring during dry run"
               else
                 ${sourceAgentEnv}
-                ${lib.concatStringsSep "\n" (lib.mapAttrsToList claudeMcpUrlGuard claudeMcpHttp)}
+                ${mcpUrlGuards "Claude Code" claudeMcpHttp}
                 # 0600 throughout: the file holds oauthAccount; a bare
                 # redirect under the service's 022 umask would leave 0644.
                 claude_json="$HOME/.claude.json"
@@ -399,7 +530,7 @@
                   --argjson stdio ${lib.escapeShellArg claudeMcpStdioJson} \
                   --argjson names ${lib.escapeShellArg claudeMcpNamesJson} \
                   --argjson prev "$prev" \
-                  ${claudeMcpJqArgs} \
+                  ${mcpJqArgs claudeMcpHttp} \
                   ${lib.escapeShellArg claudeMcpJqProgram} \
                   "$claude_json" > "$tmp"; then
                   # No-op merges leave the inode alone: the claude CLI rewrites
@@ -418,11 +549,71 @@
               fi
             '';
 
+        home.activation.agentMcpCodex =
+          lib.hm.dag.entryAfter
+            [
+              "retrieveOpnixSecrets"
+              "writeBoundary"
+            ]
+            ''
+              if [ -n "''${DRY_RUN_CMD:-}" ]; then
+                echo "Skipping Codex MCP wiring during dry run"
+              else
+                ${sourceAgentEnv}
+                ${mcpUrlGuards "Codex" codexMcpHttp}
+                codex_toml="$HOME/.codex/config.toml"
+                ${pkgs.coreutils}/bin/mkdir -p "$HOME/.codex"
+                if [ ! -e "$codex_toml" ]; then
+                  ${pkgs.coreutils}/bin/install -m 600 /dev/null "$codex_toml"
+                fi
+                prev='[]'
+                if [ -s ${lib.escapeShellArg codexManagedStateFile} ]; then
+                  prev="$(${pkgs.jq}/bin/jq -c 'if type == "array" then . else [] end' \
+                    ${lib.escapeShellArg codexManagedStateFile} 2>/dev/null || echo '[]')"
+                fi
+                tmp="$codex_toml.tmp"
+                ${pkgs.coreutils}/bin/install -m 600 /dev/null "$tmp"
+                if ${remarshalBin} --if toml --of json "$codex_toml" \
+                  | ${pkgs.jq}/bin/jq \
+                    --argjson stdio ${lib.escapeShellArg codexMcpStdioJson} \
+                    --argjson http ${lib.escapeShellArg codexMcpHttpJson} \
+                    --argjson plugins ${lib.escapeShellArg codexPluginOverridesJson} \
+                    --argjson names ${lib.escapeShellArg codexMcpNamesJson} \
+                    --argjson prev "$prev" \
+                    ${mcpJqArgs codexMcpHttp} \
+                    ${lib.escapeShellArg codexMcpJqProgram} \
+                  | ${remarshalBin} --if json --of toml > "$tmp"; then
+                  # The URLs embed the opnix-sourced domain and codex rewrites
+                  # the file 0644, so re-tighten even on a no-op merge.
+                  if ${pkgs.diffutils}/bin/cmp -s "$tmp" "$codex_toml"; then
+                    ${pkgs.coreutils}/bin/rm -f "$tmp"
+                    ${pkgs.coreutils}/bin/chmod 600 "$codex_toml"
+                  else
+                    ${pkgs.coreutils}/bin/mv "$tmp" "$codex_toml"
+                  fi
+                  ${pkgs.coreutils}/bin/mkdir -p "$(${pkgs.coreutils}/bin/dirname ${lib.escapeShellArg codexManagedStateFile})"
+                  printf '%s\n' ${lib.escapeShellArg codexMcpNamesJson} > ${lib.escapeShellArg codexManagedStateFile}
+                else
+                  echo "WARNING: could not update $codex_toml (invalid TOML?); leaving it unchanged" >&2
+                  ${pkgs.coreutils}/bin/rm -f "$tmp"
+                fi
+              fi
+            '';
+
         systemd.user.services.claude-code-plugins = {
           Unit.Description = "Claude Code plugin install";
           Service = {
             Type = "oneshot";
             ExecStart = lib.getExe claudePluginsInstall;
+          };
+          Install.WantedBy = [ "default.target" ];
+        };
+
+        systemd.user.services.codex-plugins = {
+          Unit.Description = "Codex plugin install";
+          Service = {
+            Type = "oneshot";
+            ExecStart = lib.getExe codexPluginsInstall;
           };
           Install.WantedBy = [ "default.target" ];
         };
@@ -476,6 +667,8 @@
 
         home.packages = with pkgs; [
           claudeCodeWrapper
+          codexWrapper
+          codexPluginsUpdate
           opencodeWrapper
           opencodeMeminiUpdate
           mcp-nixos

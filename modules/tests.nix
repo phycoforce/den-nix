@@ -70,6 +70,17 @@
         aaron-at-temperantia.systemd.user.services ? claude-code-plugins
       );
 
+      # Codex follows the same split: config.toml is a declarative
+      # remarshal+jq merge, plugin install a gated user service.
+      checks.codex-no-cli-in-activation = checkCond "codex-no-cli-in-activation" (
+        !builtins.any (entry: pkgs.lib.hasInfix "bin/codex" entry.data) (
+          builtins.attrValues aaron-at-temperantia.home.activation
+        )
+      );
+      checks.codex-plugins-user-service = checkCond "codex-plugins-user-service" (
+        aaron-at-temperantia.systemd.user.services ? codex-plugins
+      );
+
       # communication.nix / development.nix hold the client-side halves (see
       # _home/noctalia.nix); dropping an id here breaks nothing at build time.
       checks.noctalia-community-templates =
