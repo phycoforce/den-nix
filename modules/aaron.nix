@@ -39,6 +39,7 @@
       den.aspects.agents
       den.aspects.gaming
       den.aspects.media
+      den.aspects.tailscale
     ];
 
     user.extraGroups = [
