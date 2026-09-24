@@ -15,8 +15,9 @@
 #   3. Probe every remaining output against every substituter (narinfo); a
 #      path any substituter serves is never a violation.
 #   4. What survives is an unserved local build: BLOCK pnames always fail,
-#      trivial builders (inline buildCommand, no source, compiler-less
-#      stdenv) are dropped as cheap by construction, i686 rows are
+#      trivial builders (a compiler-less stdenv running an inline
+#      buildCommand with no source, or repacking a .nupkg) are dropped as
+#      cheap by construction, i686 rows are
 #      policy-tolerated up to PLAN_GATE_MAX_I686 (Hydra never builds this
 #      host's full 32-bit set; only third-party caches serve it incidentally,
 #      at revs of their choosing), baseline pnames are tolerated, anything
@@ -242,6 +243,10 @@ fi
 # anchor on stdenv is load-bearing twice: it keeps bootstrap-stage stdenvs
 # from matching (the bootstrap guard above must keep firing) and refuses an
 # absent stdenv (stage0 seeds carry buildCommand with no stdenv attr).
+# Two trivial shapes share that stdenv test: an inline buildCommand with no
+# source, and a fetchNupkg repack (src IS the .nupkg; phases, so no
+# buildCommand) - unzip-and-copy in seconds, and nixpkgs rehashes every one
+# of them on any dotnet hook bump, so a pname baseline can never track them.
 jq -rs '
   ([.[] | .derivations // {}] | add // {}) | to_entries[] |
   (.value.env // {}) as $e | (.value.structuredAttrs // {}) as $s |
@@ -254,12 +259,13 @@ jq -rs '
            or ($s.allowSubstitutes? == false)
            or (($e.__json? // "{}" | fromjson? // {})
                | (.preferLocalBuild == true or .allowSubstitutes == false))),
-   triv: ((($e.buildCommand // $s.buildCommand) != null)
-          and ((($e.src // $s.src // "") | tostring) == "")
-          and ((($e.srcs // $s.srcs // "") | tostring) == "")
-          and ((.value.outputs | length) == 1)
-          and ((($e.stdenv // $s.stdenv // "") | tostring)
-               | test("^/nix/store/[0-9a-z]{32}-stdenv-[a-z0-9]+-no-cc$")))} |
+   triv: (((($e.stdenv // $s.stdenv // "") | tostring)
+           | test("^/nix/store/[0-9a-z]{32}-stdenv-[a-z0-9]+-no-cc$"))
+          and (((($e.buildCommand // $s.buildCommand) != null)
+                and ((($e.src // $s.src // "") | tostring) == "")
+                and ((($e.srcs // $s.srcs // "") | tostring) == "")
+                and ((.value.outputs | length) == 1))
+               or ((($e.src // $s.src // "") | tostring) | endswith(".nupkg"))))} |
   [.drv, .out, (if .fod then "fod" elif .local then "local" else "check" end),
    .sys, (if .triv then "trivial" else "-" end)] | @tsv
 ' "$workdir/drvs.json" >"$workdir/classified"
@@ -367,8 +373,8 @@ while IFS=$'\t' read -r _ drv out sys; do
     violations=$((violations + 1))
     continue
   fi
-  # Trivial builder: the whole build is one inline shell snippet under a
-  # compiler-less stdenv with no source - cheap by construction, whatever it
+  # Trivial builder: an inline shell snippet with no source, or a .nupkg
+  # repack, under a compiler-less stdenv - cheap by construction, whatever it
   # is named, and every dependency is its own BUILD row. BLOCK stays FIRST:
   # llvm-src/clang-src/niri-<v>-vendor match this shape yet are the
   # mid-toolchain-rebuild tripwire (deliberately the OPPOSITE order of the
@@ -448,7 +454,7 @@ echo ">> plan-gate: $fetch_count fetched ${download:+$download }| $build_count t
   "$config_artifacts config-artifacts, ${#trivial_names[@]} trivial-builders," \
   "${#i686_tolerated[@]} i686-tolerated, ${#tolerated[@]} tolerated, $violations violations."
 if [ "${#trivial_names[@]}" -gt 0 ]; then
-  echo "   trivial-builders (inline buildCommand, no source, no compiler; builds at switch in seconds): $(printf '%s ' "${trivial_names[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+  echo "   trivial-builders (inline buildCommand or .nupkg repack, no compiler; builds at switch in seconds): $(printf '%s ' "${trivial_names[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
 fi
 if [ "${#i686_tolerated[@]}" -gt 0 ]; then
   echo "   i686-tolerated (32-bit, unserved by policy; compiles at switch): $(printf '%s ' "${i686_tolerated[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
