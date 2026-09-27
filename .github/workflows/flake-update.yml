@@ -33,7 +33,7 @@ jobs:
     steps:
       # Load-bearing: a ~30 GiB realized closure does not fit a stock runner.
       - name: Free disk space
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
         with:
           tool-cache: false
           swap-storage: false
@@ -64,7 +64,7 @@ jobs:
             max-substitution-jobs = 32
 
       - name: Cachix
-        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: phycoforce
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
