@@ -88,20 +88,68 @@ bump() { # bump <lockfile-out-of-band-log> <inputs...>; fails on rate-limit lies
 }
 
 gate_reason() { # gate_reason <plan-gate-stderr>: one classified line for hold()
-  local err="$1" pnames
+  local err="$1" kind class pnames reasons=() joined
   if grep -q '^!! plan-gate: evaluation failed' "$err"; then
     echo "eval failed"
-  elif grep -qE '^!! VIOLATION: .* would compile locally' "$err"; then
-    pnames="$(sed -nE 's/^!! VIOLATION: ([^ ]+) would compile locally.*/\1/p' "$err" | sort -u | tr '\n' ' ')"
-    echo "blocked: ${pnames% }"
-  elif grep -qE '^!! VIOLATION: .* is a NEW unserved local build' "$err"; then
-    pnames="$(sed -nE 's/^!! VIOLATION: ([^ ]+) is a NEW unserved local build.*/\1/p' "$err" | sort -u | tr '\n' ' ')"
-    echo "baseline-stale: ${pnames% } - never self-heals; baseline or classifier needs the pname"
-  elif grep -q '32-bit builds (cap' "$err"; then
-    echo "i686 over cap"
-  else
-    echo "gate failed (see run log)"
+    return
   fi
+  # Grouped by plan-gate's per-row Hydra verdict: whether a hold self-heals is
+  # what the reader of a commit body or annotation needs first.
+  for kind in blocked new; do
+    for class in failed-upstream hydra-pending no-hydra-job inconclusive; do
+      pnames="$(awk -v k="$kind" -v c="$class" '
+        /^!! VIOLATION: / { p = $3; vk = (/ would compile locally/ ? "blocked" : "new"); next }
+        /^   hydra: / && p != "" { if (vk == k && $2 == c) print p; p = "" }
+      ' "$err" | sort -u | tr '\n' ' ')"
+      pnames="${pnames% }"
+      [ -n "$pnames" ] || continue
+      case "$kind/$class" in
+        blocked/failed-upstream) reasons+=("blocked, failed upstream on Hydra: $pnames - self-heals once nixos-unstable ships a fix") ;;
+        blocked/hydra-pending) reasons+=("blocked, Hydra pending: $pnames - self-heals once Hydra finishes") ;;
+        blocked/*) reasons+=("blocked: $pnames - see the BLOCK hint in the run log") ;;
+        new/failed-upstream) reasons+=("failed upstream on Hydra: $pnames - self-heals once nixos-unstable ships a fix, never re-baseline") ;;
+        new/hydra-pending) reasons+=("Hydra pending: $pnames - self-heals once Hydra finishes, never re-baseline") ;;
+        new/no-hydra-job) reasons+=("baseline-stale: $pnames - no Hydra job, never self-heals, re-baseline if cheap") ;;
+        new/inconclusive) reasons+=("unserved: $pnames - Hydra inconclusive, run just hydra-check before re-baselining") ;;
+      esac
+    done
+  done
+  if grep -q '32-bit builds (cap' "$err"; then reasons+=("i686 over cap"); fi
+  if [ "${#reasons[@]}" -eq 0 ]; then
+    echo "gate failed (see run log)"
+    return
+  fi
+  joined="$(printf '%s; ' "${reasons[@]}")"
+  echo "${joined%; }"
+}
+
+# cannot_judge <lock-to-restore> <why> [plan-gate-stderr]: an exit 2 that says
+# why - a bare "exit code 2" in CI reads like a broken input, not an outage.
+cannot_judge() {
+  local lock="$1" why="$2" err="${3:-}" down=""
+  cp -p "$lock" flake.lock
+  if [ -n "$err" ] && [ -f "$err" ]; then
+    [ -n "$why" ] || why="$(sed -nE 's/^\?\? plan-gate: (.*) - cannot judge this plan\.$/\1/p' "$err" | head -1)"
+    [ -n "$why" ] || why="$(sed -nE 's/^\?\? (plan-gate: )?//p' "$err" | head -1)"
+    down="$(sed -nE 's/^ +DOWN +//p' "$err" | paste -sd ',' - | sed 's/,/, /g')"
+  fi
+  why="${why:-plan-gate could not judge}${down:+ (down: $down)}"
+  echo "?? flake-update: cannot judge - $why. No input was blamed or committed; re-run once it recovers." >&2
+  if [ "$MODE" = "ci" ]; then
+    echo "::error title=flake-update cannot judge::$why. No input was blamed or committed; re-run once it recovers."
+    {
+      echo "## flake-update: cannot judge"
+      echo
+      echo "$why. No input was blamed or committed; re-run once it recovers."
+      if [ -n "$err" ] && [ -s "$err" ]; then
+        echo
+        echo '```'
+        tail -n 40 "$err"
+        echo '```'
+      fi
+    } >"${RUNNER_TEMP:-$workdir}/flake-update-summary.md"
+  fi
+  exit 2
 }
 
 gate() { # gate <label>; uses the CURRENT worktree lock
@@ -145,7 +193,7 @@ hold() { # hold <reason> <inputs...>; restore the last good lock
 # --- batch first ------------------------------------------------------------
 echo ">> flake-update: batch attempt (${#TARGETS[@]} inputs)"
 rc=0; bump "$workdir/bump.log" "${TARGETS[@]}" || rc=$?
-[ "$rc" -eq 2 ] && { cp -p "$snapshot" flake.lock; exit 2; }
+[ "$rc" -eq 2 ] && cannot_judge "$snapshot" "GitHub API rate-limited while resolving inputs"
 [ "$rc" -ne 0 ] && { cp -p "$snapshot" flake.lock; echo "!! flake-update: batch bump failed to resolve." >&2; exit 1; }
 
 MOVED=()
@@ -161,7 +209,7 @@ if [ "${#MOVED[@]}" -eq 0 ]; then
   echo ">> flake-update: every requested input is already at its tip; nothing to verify."
 else
   rc=0; gate "batch" || rc=$?
-  if [ "$rc" -eq 2 ]; then cp -p "$snapshot" flake.lock; exit 2; fi
+  if [ "$rc" -eq 2 ]; then cannot_judge "$snapshot" "" "$workdir/gate.err"; fi
   if [ "$rc" -eq 0 ]; then
     for i in "${MOVED[@]}"; do RESULT[$i]=kept; NEWREV[$i]="$(rev_of "$i" flake.lock)"; done
     cp -p flake.lock "$good"
@@ -172,10 +220,10 @@ else
     for i in "${MOVED[@]}"; do
       cp -p "$good" flake.lock
       rc=0; bump "$workdir/bump-$i.log" "$i" || rc=$?
-      if [ "$rc" -ne 0 ]; then hold "fetch/rate-limit while re-resolving" "$i"; [ "$rc" -eq 2 ] && exit 2; continue; fi
+      if [ "$rc" -ne 0 ]; then hold "fetch/rate-limit while re-resolving" "$i"; [ "$rc" -eq 2 ] && cannot_judge "$good" "GitHub API rate-limited while re-resolving $i"; continue; fi
       if cmp -s flake.lock "$good"; then RESULT[$i]=current; continue; fi
       rc=0; gate "$i" || rc=$?
-      if [ "$rc" -eq 2 ]; then cp -p "$good" flake.lock; exit 2; fi
+      if [ "$rc" -eq 2 ]; then cannot_judge "$good" "" "$workdir/gate.err"; fi
       if [ "$rc" -eq 0 ]; then
         RESULT[$i]=kept; NEWREV[$i]="$(rev_of "$i" flake.lock)"; cp -p flake.lock "$good"
       else

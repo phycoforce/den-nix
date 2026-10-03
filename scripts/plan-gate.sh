@@ -32,8 +32,9 @@
 #   PLAN_GATE_STORE=<path> use this store instead of the default.
 #
 # Exit codes: 0 = safe (or nothing to prove), 1 = violations / eval failure /
-# unparsable plan, 2 = cannot judge (substituters unreachable, rate-limited,
-# or the plan looks like an offline bootstrap-from-source explosion).
+# unparsable plan, 2 = cannot judge (a substituter down or answering 5xx, a
+# network error mid-plan, rate-limited, or the plan looks like an offline
+# bootstrap-from-source explosion). Every exit 2 lists per-substituter health.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,6 +48,12 @@ MAX_BUILDS="${PLAN_GATE_MAX_BUILDS:-2000}"
 # an i686 mass rebuild no cache will absorb - hold, don't tolerate. Under the
 # cap, non-BLOCK i686 builds compile at switch by design (bounded, listed).
 MAX_I686="${PLAN_GATE_MAX_I686:-25}"
+# Hydra verdicts explain WHY an unserved row is unserved; they never change the
+# exit code. Jobs are guessed as nixpkgs.<pname>.<system>, so "no job" is not
+# proof that Hydra never builds the package.
+HYDRA="${PLAN_GATE_HYDRA:-https://hydra.nixos.org}"
+HYDRA_JOBSET="${PLAN_GATE_HYDRA_JOBSET:-nixos/unstable}"
+MAX_HYDRA_LOOKUPS="${PLAN_GATE_MAX_HYDRA_LOOKUPS:-10}"
 
 # Must mirror the flake's nixConfig + the default cache; an unreachable cache
 # makes "no one serves X" unknowable, so the gate exits 2 instead of guessing.
@@ -110,6 +117,92 @@ while [ "${1:-}" != "" ] && [[ "${1:-}" == --* ]] && [ "${1:-}" != "--" ]; do
 done
 [ "${1:-}" = "--" ] && shift
 
+# cannot_judge <headline> [nix-evidence-file]: exit 2 naming the cache that is
+# down, so a red run says why and no input is blamed for an outage.
+cannot_judge() {
+  echo "?? plan-gate: $1 - cannot judge this plan." >&2
+  if [ -n "${2:-}" ] && [ -s "$2" ]; then
+    echo "   nix reported:" >&2
+    sed 's/^[[:space:]]*/     /' "$2" >&2
+  fi
+  echo "   substituters (probed now):" >&2
+  printf '%s\n' "${health[@]}" >&2
+  echo "   nothing was judged; re-run once every substituter answers (probe: curl -sI <substituter>/nix-cache-info)." >&2
+  exit 2
+}
+
+hydra_status_name() {
+  case "$1" in
+    0) echo "succeeded" ;;
+    1) echo "failed" ;;
+    2) echo "dependency failed" ;;
+    3) echo "aborted" ;;
+    4) echo "cancelled" ;;
+    6) echo "failed with output" ;;
+    7) echo "timed out" ;;
+    9) echo "unsupported system" ;;
+    10) echo "log limit exceeded" ;;
+    11) echo "output limit exceeded" ;;
+    12) echo "non-deterministic" ;;
+    *) echo "status $1" ;;
+  esac
+}
+
+# hydra_verdict <pname> <output> <system>: sets hv_class/hv_detail from the
+# Hydra build of this EXACT output, matched by hash so a later eval's success
+# is never mistaken for this lock's. Classes: failed-upstream, hydra-pending,
+# no-hydra-job, inconclusive. Globals, not stdout: the lookup budget must
+# survive the call.
+hydra_lookups=0
+hydra_verdict() {
+  local pname="$1" out="$2" sys="${3:-x86_64-linux}" hash job list id status finished outs url
+  local newest="" nid nstatus nfinished
+  hash="$(basename "$out")"; hash="${hash%%-*}"
+  job="nixpkgs.$pname.$sys"
+  hv_class=inconclusive
+  if [ "$hydra_lookups" -ge "$MAX_HYDRA_LOOKUPS" ]; then
+    hv_detail="lookup skipped (budget of $MAX_HYDRA_LOOKUPS spent); check: just hydra-check $pname"
+    return 0
+  fi
+  hydra_lookups=$((hydra_lookups + 1))
+  if ! list="$(curl -m 10 -sf -H 'Accept: application/json' \
+      "$HYDRA/api/latestbuilds?nr=10&project=${HYDRA_JOBSET%%/*}&jobset=${HYDRA_JOBSET#*/}&job=$job" \
+      | jq -r '.[] | "\(.id) \(.buildstatus // "-") \(.finished)"')"; then
+    hv_detail="Hydra unreachable; check: just hydra-check $pname"
+    return 0
+  fi
+  if [ -z "$list" ]; then
+    hv_class=no-hydra-job
+    hv_detail="no $HYDRA_JOBSET job $job (unfree, not a Hydra job, or the attr differs from the pname)"
+    return 0
+  fi
+  while read -r id status finished; do
+    [ -n "$newest" ] || newest="$id $status $finished"
+    outs="$(curl -m 10 -sf -H 'Accept: application/json' "$HYDRA/build/$id" | jq -r '.buildoutputs[]?.path' || true)"
+    grep -q "/$hash-" <<<"$outs" || continue
+    url="$HYDRA/build/$id"
+    if [ "$finished" != 1 ]; then
+      hv_class=hydra-pending; hv_detail="queued on Hydra, not built yet: $url"
+    elif [ "$status" = 0 ]; then
+      hv_class=hydra-pending; hv_detail="Hydra built it but no cache serves it yet: $url"
+    elif [ "$status" = 3 ] || [ "$status" = 4 ]; then
+      hv_class=hydra-pending; hv_detail="$(hydra_status_name "$status") on Hydra, may be retried: $url"
+    else
+      hv_class=failed-upstream
+      hv_detail="$(hydra_status_name "$status") on Hydra for this exact output: $url"
+      read -r nid nstatus nfinished <<<"$newest"
+      if [ "$nid" != "$id" ] && [ "$nfinished" = 1 ] && [ "$nstatus" = 0 ]; then
+        hv_detail+="; a later build succeeded ($HYDRA/build/$nid), so it is fixed upstream and waits for the channel"
+      fi
+    fi
+    return 0
+  done <<<"$list"
+  read -r nid nstatus nfinished <<<"$newest"
+  if [ "$nfinished" = 1 ]; then nstatus="$(hydra_status_name "$nstatus")"; else nstatus="queued"; fi
+  hv_detail="none of $job's last 10 builds made this output (newest: $HYDRA/build/$nid, $nstatus); check: just hydra-check $pname"
+  return 0
+}
+
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/plan-gate.XXXXXX")"
 # --cold store paths are read-only, hence the chmod. The trailing || true is
 # load-bearing: a failing EXIT trap REPLACES the exit status, turning a 2
@@ -140,30 +233,58 @@ fi
 # gate is a permanent false alarm. stdin from /dev/null: in baseline mode
 # (accept-flake-config refused) nix on a tty PROMPTS y/N per nixConfig
 # setting, invisibly into $plan, and a y would re-admit the own cache.
-if ! nix build "$TOPLEVEL" --dry-run --accept-flake-config --log-format raw \
-    --no-write-lock-file "${STORE_ARGS[@]}" "${SUB_ARGS[@]}" "$@" \
-    </dev/null >/dev/null 2>"$plan"; then
+nix_rc=0
+nix build "$TOPLEVEL" --dry-run --accept-flake-config --log-format raw \
+  --no-write-lock-file "${STORE_ARGS[@]}" "${SUB_ARGS[@]}" "$@" \
+  </dev/null >/dev/null 2>"$plan" || nix_rc=$?
+
+# Probed once, before any verdict: every exit 2 below names the cache that was
+# down instead of "something was unreachable".
+unreachable=()
+health=()
+for sub in "${SUBSTITUTERS[@]}"; do
+  code="$(curl -m 5 -s -o /dev/null -w '%{http_code}' "$sub/nix-cache-info" || true)"
+  if [ "$code" = "200" ]; then
+    health+=("     up    $sub")
+  else
+    unreachable+=("$sub")
+    if [ "$code" = "000" ]; then code="no response"; else code="HTTP $code"; fi
+    health+=("     DOWN  $sub ($code)")
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# Degraded-network detection, BEFORE interpreting the plan. A failed plan is
+# the network, not this lock, when nix died on a transport error or a 5xx/
+# 408/429: a warm store skips the nix-cache-info handshake, so a cache that
+# answers 502 per narinfo is a HARD nix error, which would otherwise read as
+# "evaluation failed" and hold every input. A plan that succeeded with a
+# substituter down is no better: nix cannot tell "absent" from "unqueryable"
+# and reclassifies fetches as builds (8000+ bootstrap derivations, exit 0).
+# A daemon crash is never evidence against the lock either: nix 2.34.8's
+# daemon worker aborts in querySubstitutablePathInfos under a 502 storm.
+# ---------------------------------------------------------------------------
+NET_ERROR_RE="^[[:space:]]*error: unable to download '[^']+': (HTTP error (5[0-9]{2}|408|429)|[A-Z][^(]*\([0-9]+\))|API rate limit exceeded"
+if [ "$nix_rc" -ne 0 ]; then
+  # 5xx retries collapsed per host, so the evidence names the culprit.
+  { grep -oE "unable to download 'https?://[^/']+[^']*': HTTP error 5[0-9]{2}" "$plan" || true; } \
+    | sed -E "s|unable to download '(https?://[^/']+)[^']*': HTTP error ([0-9]{3})|\1 answered HTTP \2|" \
+    | sort | uniq -c | sed -E 's/^ *([0-9]+) (.*)/\2 (x\1)/' >"$workdir/net-evidence"
+  if grep -qE "$NET_ERROR_RE" "$plan"; then
+    grep -E "$NET_ERROR_RE" "$plan" | sort -u | head -5 >>"$workdir/net-evidence"
+    cannot_judge "nix failed on a network error, not on this lock" "$workdir/net-evidence"
+  fi
+  if grep -q 'Nix daemon disconnected unexpectedly' "$plan"; then
+    cannot_judge "the nix daemon died mid-plan - infrastructure, not this lock" "$workdir/net-evidence"
+  fi
   cat "$plan" >&2
   echo "!! plan-gate: evaluation failed (see above)." >&2
   exit 1
 fi
-
-# ---------------------------------------------------------------------------
-# Degraded-network detection, BEFORE interpreting the plan: with a substituter
-# down nix cannot tell "absent" from "unqueryable" and reclassifies fetches as
-# builds (8000+ bootstrap derivations, exit 0). Never read that as "upstream
-# is broken".
-# ---------------------------------------------------------------------------
 if grep -qE "unable to download '.*nix-cache-info'|API rate limit exceeded" "$plan"; then
-  grep -E "unable to download|API rate limit" "$plan" | sort -u | head -5 >&2
-  echo "?? plan-gate: a substituter or the GitHub API was unreachable - cannot judge this plan." >&2
-  exit 2
+  grep -E "unable to download '.*nix-cache-info'|API rate limit" "$plan" | sort -u | head -5 >"$workdir/net-evidence"
+  cannot_judge "a substituter or the GitHub API was unreachable while nix planned" "$workdir/net-evidence"
 fi
-unreachable=()
-for sub in "${SUBSTITUTERS[@]}"; do
-  code="$(curl -m 5 -s -o /dev/null -w '%{http_code}' "$sub/nix-cache-info" || true)"
-  [ "$code" = "200" ] || unreachable+=("$sub")
-done
 
 # ---------------------------------------------------------------------------
 # Section-aware split, tested against nix 2.34.8: singular+plural headers,
@@ -210,8 +331,7 @@ if grep -q '^UNKNOWN ' "$workdir/records"; then
   exit 1
 fi
 if [ "$build_count" -gt "$MAX_BUILDS" ] || grep -qE '^BUILD .*(stage0-posix|bootstrap-tools)' "$workdir/records"; then
-  echo "?? plan-gate: $build_count derivations to build (cap $MAX_BUILDS) or bootstrap seeds present - this is what 'no substituter reachable' looks like, not what 'upstream broke' looks like. Cannot judge." >&2
-  exit 2
+  cannot_judge "$build_count derivations to build (cap $MAX_BUILDS) or bootstrap seeds present - what 'no substituter reachable' looks like, not what 'upstream broke' looks like"
 fi
 
 # ---------------------------------------------------------------------------
@@ -370,6 +490,8 @@ while IFS=$'\t' read -r _ drv out sys; do
     echo "!! VIOLATION: $pname would compile locally ($(basename "$drv")${sys:+, $sys})" >&2
     echo "   expected from: $blocked_hint" >&2
     echo "   output: $out" >&2
+    hydra_verdict "$pname" "$out" "$sys"
+    echo "   hydra: $hv_class - $hv_detail" >&2
     violations=$((violations + 1))
     continue
   fi
@@ -392,9 +514,17 @@ while IFS=$'\t' read -r _ drv out sys; do
     tolerated+=("$pname")
   elif [ "$WRITE_BASELINE" -eq 0 ]; then
     echo "!! VIOLATION: $pname is a NEW unserved local build (not in $(basename "$BASELINE")${sys:+; $sys})" >&2
-    echo "   no configured substituter serves it; if this is a cheap wrapper/config artifact," >&2
-    echo "   re-measure with: just gate-baseline   otherwise: hold this lock." >&2
+    echo "   no configured substituter serves it." >&2
     echo "   output: $out" >&2
+    hydra_verdict "$pname" "$out" "$sys"
+    echo "   hydra: $hv_class - $hv_detail" >&2
+    # The baseline is for packages no one ever serves; an upstream failure or
+    # a pending build would be tolerated there forever.
+    case "$hv_class" in
+      failed-upstream) echo "   next: hold - it cannot build here either; self-heals once ${HYDRA_JOBSET/\//-} ships a fixed eval. Never re-baseline it." >&2 ;;
+      hydra-pending) echo "   next: hold - self-heals once Hydra finishes and the cache catches up. Never re-baseline it." >&2 ;;
+      *) echo "   next: if Hydra never builds it and it is cheap (wrapper, repack, unfree blob), re-measure with: just gate-baseline; otherwise hold." >&2 ;;
+    esac
     violations=$((violations + 1))
   fi
 done < <(grep '^UNSERVED' "$workdir/probed" || true)
@@ -412,8 +542,7 @@ if [ "$WRITE_BASELINE" -eq 1 ]; then
   # cache serves would probe unserved and, merge semantics, stay tolerated
   # forever.
   if [ "${#unreachable[@]}" -gt 0 ]; then
-    echo "?? plan-gate: not writing a baseline measured while substituters were unreachable (${unreachable[*]})." >&2
-    exit 2
+    cannot_judge "not writing a baseline measured while substituters were unreachable"
   fi
   {
     echo "# Measured expected-local set: pnames no PUBLIC substituter serves at a"
@@ -463,13 +592,13 @@ if [ "${#tolerated[@]}" -gt 0 ]; then
   echo "   tolerated (expected-local; compiles at switch): $(printf '%s ' "${tolerated[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
 fi
 if [ "${#unreachable[@]}" -gt 0 ]; then
-  echo "?? unreachable substituters: ${unreachable[*]}" >&2
   # i686-tolerated rows count too: they are tolerated, not flagged, yet only
   # a third-party cache ever serves them - a dead cache makes them phantoms
   # that would otherwise pass silently.
   if [ "$violations" -gt 0 ] || [ "${#i686_tolerated[@]}" -gt 0 ]; then
-    echo "?? violations/i686-tolerated above may be phantoms of the unreachable cache - cannot judge." >&2
-    exit 2
+    cannot_judge "violations/i686-tolerated above may be phantoms of the unreachable cache"
   fi
+  echo "?? plan-gate: passing with substituters down - no unserved row depended on them:" >&2
+  printf '%s\n' "${health[@]}" >&2
 fi
 [ "$violations" -eq 0 ] && [ "$i686_over_cap" -eq 0 ] || exit 1
