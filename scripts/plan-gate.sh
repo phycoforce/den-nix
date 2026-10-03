@@ -59,7 +59,6 @@ MAX_HYDRA_LOOKUPS="${PLAN_GATE_MAX_HYDRA_LOOKUPS:-10}"
 # makes "no one serves X" unknowable, so the gate exits 2 instead of guessing.
 SUBSTITUTERS=(
   "https://cache.nixos.org"
-  "https://cache.xinux.uz"
   "https://attic.xuyh0120.win/lantian"
   "https://nix-community.cachix.org"
   "https://phycoforce.cachix.org"

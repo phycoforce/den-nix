@@ -11,13 +11,11 @@
       "flakes"
     ];
     extra-substituters = [
-      "https://cache.xinux.uz"
       "https://attic.xuyh0120.win/lantian"
       "https://nix-community.cachix.org"
       "https://phycoforce.cachix.org"
     ];
     extra-trusted-public-keys = [
-      "cache.xinux.uz:BXCrtqejFjWzWEB9YuGB7X2MV4ttBur1N8BkwQRdH+0="
       "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "phycoforce.cachix.org-1:a0cdy4WlT8NxyM5n3jrWdjoBXa5Iri3UVnM7VmvpwvY="
