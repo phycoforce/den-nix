@@ -41,8 +41,10 @@ NIX_FLAGS=(--accept-flake-config)
 # GitHub API is 60 req/hr/IP, and `nix flake update` on hitting the limit
 # keeps the CACHED rev and exits 0 - a no-op that reads as "already current".
 if [ "$MODE" = "local" ] && command -v gh >/dev/null 2>&1 && gh auth token >/dev/null 2>&1; then
-  export NIX_CONFIG="access-tokens = github.com=$(gh auth token)
+  gh_token="$(gh auth token)"
+  NIX_CONFIG="access-tokens = github.com=$gh_token
 ${NIX_CONFIG:-}"
+  export NIX_CONFIG
 fi
 
 # Requested inputs must be real root inputs: `nix flake update <unknown>` only
@@ -69,6 +71,20 @@ good="$workdir/flake.lock.good"
 cp -p flake.lock "$snapshot"
 cp -p flake.lock "$good"
 trap 'rm -rf "$workdir"' EXIT
+
+# flake-gate shadow (Go port of plan-gate.sh, not authoritative yet): built
+# once BEFORE any lock mutation so every gate() compares the same binary; a
+# failed build only disables the shadow. FLAKE_GATE_SHADOW=0 opts out.
+FLAKE_GATE_SHADOW_BIN=""
+SHADOW_AGREED=0
+SHADOW_DISAGREED=0
+if [ "${FLAKE_GATE_SHADOW:-1}" != "0" ]; then
+  if nix build .#flake-gate -o "$workdir/flake-gate" "${NIX_FLAGS[@]}" >"$workdir/shadow-build.log" 2>&1; then
+    FLAKE_GATE_SHADOW_BIN="$workdir/flake-gate/bin/flake-gate"
+  else
+    echo "?? flake-update: flake-gate shadow build failed; shadow disabled this run." >&2
+  fi
+fi
 
 declare -A RESULT REASON NEWREV
 
@@ -147,18 +163,71 @@ cannot_judge() {
         tail -n 40 "$err"
         echo '```'
       fi
+      shadow_summary
     } >"${RUNNER_TEMP:-$workdir}/flake-update-summary.md"
   fi
   exit 2
 }
 
+# shadow_compare <label> <bash_rc> <bash_out> <bash_err>: exit code, summary
+# line and sorted VIOLATION lines (bash order is nondeterministic). Report-only:
+# it must never alter rc, outputs, the commit message or a hold reason.
+shadow_compare() {
+  local label="$1" bash_rc="$2" bash_out="$3" bash_err="$4"
+  [ -n "$FLAKE_GATE_SHADOW_BIN" ] || return 0
+  local go_out="$workdir/shadow-$label.out" go_err="$workdir/shadow-$label.err" go_rc=0
+  "$FLAKE_GATE_SHADOW_BIN" gate --repo "$REPO_ROOT" >"$go_out" 2>"$go_err" || go_rc=$?
+  local bash_summary go_summary bash_viol go_viol
+  bash_summary="$(grep '^>> plan-gate: ' "$bash_out" 2>/dev/null | head -1 || true)"
+  go_summary="$(grep '^>> plan-gate: ' "$go_out" 2>/dev/null | head -1 || true)"
+  bash_viol="$(grep '^!! VIOLATION: ' "$bash_err" 2>/dev/null | sort || true)"
+  go_viol="$(grep '^!! VIOLATION: ' "$go_err" 2>/dev/null | sort || true)"
+  if [ "$bash_rc" = "$go_rc" ] && [ "$bash_summary" = "$go_summary" ] && [ "$bash_viol" = "$go_viol" ]; then
+    SHADOW_AGREED=$((SHADOW_AGREED + 1))
+    echo ">> flake-gate shadow: agrees [$label]"
+    return 0
+  fi
+  SHADOW_DISAGREED=$((SHADOW_DISAGREED + 1))
+  echo "?? flake-gate shadow: disagrees [$label]: bash exit $bash_rc vs go exit $go_rc" >&2
+  if [ "$bash_summary" != "$go_summary" ]; then
+    echo "   bash: $bash_summary" >&2
+    echo "   go:   $go_summary" >&2
+  fi
+  if [ "$bash_viol" != "$go_viol" ]; then
+    echo "   violation sets differ:" >&2
+    diff <(echo "$bash_viol") <(echo "$go_viol") 2>/dev/null | sed 's/^/   /' >&2 || true
+  fi
+  if [ "$MODE" = "ci" ]; then
+    echo "::warning::flake-gate shadow disagrees [$label] (bash exit $bash_rc vs go exit $go_rc)"
+    {
+      printf -- '- **[%s]** disagrees: bash exit %s, go exit %s\n' "$label" "$bash_rc" "$go_rc"
+      [ "$bash_summary" = "$go_summary" ] || printf '  - summary: bash `%s` vs go `%s`\n' "$bash_summary" "$go_summary"
+      [ "$bash_viol" = "$go_viol" ] || echo "  - violation sets differ (see run log)"
+    } >>"$workdir/shadow-summary.md"
+  fi
+  return 0
+}
+
+# shadow_summary: the job-summary section, so a quiet trial still shows it ran.
+shadow_summary() {
+  [ $((SHADOW_AGREED + SHADOW_DISAGREED)) -gt 0 ] || return 0
+  printf '\n### flake-gate shadow\n\nagreed %s, disagreed %s\n' "$SHADOW_AGREED" "$SHADOW_DISAGREED"
+  if [ -s "$workdir/shadow-summary.md" ]; then
+    echo
+    cat "$workdir/shadow-summary.md"
+  fi
+  return 0
+}
+
 gate() { # gate <label>; uses the CURRENT worktree lock
   local label="$1" rc=0
   echo ">> gate [$label]: plan-gate"
-  # stderr rides through a file so a hold gets a classified reason instead of
-  # "see log above" in a commit body that has no log; replayed right after.
-  "$SCRIPT_DIR/plan-gate.sh" 2>"$workdir/gate.err" || rc=$?
+  # Both streams ride through files (shadow_compare reads both; a hold gets a
+  # classified reason, not "see log above", in a commit body) and are replayed.
+  "$SCRIPT_DIR/plan-gate.sh" >"$workdir/gate.out" 2>"$workdir/gate.err" || rc=$?
+  cat "$workdir/gate.out"
   cat "$workdir/gate.err" >&2
+  shadow_compare "$label" "$rc" "$workdir/gate.out" "$workdir/gate.err" || true
   if [ "$rc" -ne 0 ]; then
     gate_reason "$workdir/gate.err" >"$workdir/gate-reason"
     return "$rc"
@@ -293,6 +362,7 @@ if [ "$MODE" = "ci" ]; then
       "$SCRIPT_DIR/lock-diff.sh" "$snapshot" flake.lock || true
       echo '```'
     fi
+    shadow_summary
   } >"${RUNNER_TEMP:-$workdir}/flake-update-summary.md"
   {
     echo "chore(lock): scheduled input update"

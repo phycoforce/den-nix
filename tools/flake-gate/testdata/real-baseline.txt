@@ -1,0 +1,26 @@
+# Measured expected-local set: pnames no PUBLIC substituter serves at a
+# healthy lock - unfree repacks, FHS envs, repo-owned flake packages,
+# per-config builds. The gate tolerates these; they compile at switch
+# time, so review the cost of every newly added entry (the writer
+# prints them). Regenerate with: just gate-baseline
+# (cold store, own cache excluded: the own cache only proves what a
+# PAST run pushed, not what a candidate lock will need). Re-measuring
+# MERGES with existing entries - an incremental cache means one
+# measurement only ever sees a delta; prune by hand when a package
+# leaves the config. BLOCK-pattern matches are never written.
+# Last measured 2026-08-04 against 1559d3ab3ec0.
+1password
+1password-cli
+claude-code
+gamescope
+glibc-locales
+nvidia-open
+nvidia-persistenced
+opnix
+plex-desktop
+protontricks
+qylock-sddm-themes-unstable
+spotify
+vscode
+winbox
+XIVLauncher

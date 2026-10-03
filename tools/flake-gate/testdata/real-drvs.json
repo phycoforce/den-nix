@@ -1,0 +1,160 @@
+{
+  "version": 4,
+  "derivations": {
+    "1dy2qi5xbr705f9ij4l91y8pvz8gqg30-home-manager-generation.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "cldm9nskmx8380133gj2rwrzd9vv743m-home-manager-generation"
+        }
+      },
+      "env": {
+        "buildCommand": "mkdir -p $out\n\necho \"26.11\" > $out/hm-version\n\n# The gen-version indicates the format of the generation package\n# itself. It allows us to make backwards incompatible changes in the\n# package output an...[truncated]",
+        "name": "home-manager-generation",
+        "preferLocalBuild": "1",
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      },
+      "structuredAttrs": {}
+    },
+    "2wa19k4vqwbdlcz86nx5p8wka8k4qjvp-unit-home-manager-aaron.service.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "jh1dimfis8ah1mqw9yiycgfx19r60zli-unit-home-manager-aaron.service"
+        }
+      },
+      "env": {},
+      "structuredAttrs": {
+        "allowSubstitutes": false,
+        "buildCommand": "name=home-manager-aaron.service\nmkdir -p \"$out/$(dirname -- \"$name\")\"\nprintf \"%s\" \"$text\" > \"$out/$name\"\n",
+        "name": "unit-home-manager-aaron.service",
+        "preferLocalBuild": true,
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      }
+    },
+    "68ybnrjqdv5fvmravrqzhldxn1l448ym-activate.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "fbgjk65m98vahi0xcc5g1c491z36218f-activate"
+        }
+      },
+      "env": {},
+      "structuredAttrs": {
+        "allowSubstitutes": true,
+        "buildCommand": "target=$out$destination\nmkdir -p \"$(dirname \"$target\")\"\n\nif [ -e \"$textPath\" ]; then\n  mv \"$textPath\" \"$target\"\nelse\n  printf \"%s\" \"$text\" > \"$target\"\nfi\n\nif [ -n \"$executable\" ]; then\n  chmod +x \"$ta...[truncated]",
+        "name": "activate",
+        "preferLocalBuild": true,
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      }
+    },
+    "8xxgmy7inc4gxa2c0rmlcw9hfh20xd96-system-units.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "f6blqvavvld8ngkd54zzlw2xf4vamd8f-system-units"
+        }
+      },
+      "env": {
+        "allowSubstitutes": "",
+        "buildCommand": "mkdir -p $out\n\n# Copy the upstream systemd units we're interested in.\nfor i in basic.target sysinit.target sockets.target exit.target graphical.target multi-user.target network.target network-pre.targ...[truncated]",
+        "name": "system-units",
+        "preferLocalBuild": "1",
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      },
+      "structuredAttrs": {}
+    },
+    "9x1s2vzbdpmc7b5vpaj2rmivg73i7prp-options.json.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "1089qiyi1h19vrdgzw7hsgx9md8kjbqk-options.json"
+        }
+      },
+      "env": {
+        "buildCommand": "  # Export list of options in different format.\n  dst=$out/share/doc/nixos\n  mkdir -p $dst\n\n  TOUCH_IF_DB=$dst/.used-docbook \\\n  python /nix/store/yar7i652zwjkqsyrrqxaxlk1zl3zlfx8-mergeJSON.py \\\n    -...[truncated]",
+        "name": "options.json",
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      },
+      "structuredAttrs": {}
+    },
+    "igy8hghpqfrabyl633xx2g76b2wmwmsg-etc.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "j9s9jyadw5zmswprrp0vyai6bjsb6l97-etc"
+        }
+      },
+      "env": {
+        "allowSubstitutes": "",
+        "buildCommand": "set -euo pipefail\n\nmakeEtcEntry() {\n  src=\"$1\"\n  target=\"$2\"\n  mode=\"$3\"\n  user=\"$4\"\n  group=\"$5\"\n\n  if [[ \"$src\" = *'*'* ]]; then\n    # If the source name contains '*', perform globbing.\n    mkdir -p...[truncated]",
+        "name": "etc",
+        "preferLocalBuild": "1",
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      },
+      "structuredAttrs": {}
+    },
+    "l5iii0ixq9pvc15pydp26n4srk84slm8-activation-script.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "70cdzi1azx68nn0pny7zn46zbv6qm4s3-activation-script"
+        }
+      },
+      "env": {},
+      "structuredAttrs": {
+        "allowSubstitutes": false,
+        "buildCommand": "target=$out$destination\nmkdir -p \"$(dirname \"$target\")\"\n\nif [ -e \"$textPath\" ]; then\n  mv \"$textPath\" \"$target\"\nelse\n  printf \"%s\" \"$text\" > \"$target\"\nfi\n\nif [ -n \"$executable\" ]; then\n  chmod +x \"$ta...[truncated]",
+        "name": "activation-script",
+        "preferLocalBuild": true,
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      }
+    },
+    "rpdpdm6xr8m68glkv1bh72m4c23y2h4h-home-configuration-reference-manpage.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "kbhg4cfa1n7fgjp6kd2yj2n2c7za549b-home-configuration-reference-manpage"
+        }
+      },
+      "env": {
+        "buildCommand": "# Generate manpages.\nmkdir -p $out/share/man/man5\nmkdir -p $out/share/man/man1\nnixos-render-docs -j $NIX_BUILD_CORES options manpage \\\n  --revision release-26.11 \\\n  --header /nix/store/fnz11i6b9zlrf5...[truncated]",
+        "name": "home-configuration-reference-manpage",
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      },
+      "structuredAttrs": {}
+    },
+    "xdmb0qssl53s7cg372697c0p1amsi0rz-nixos-system-temperantia-26.11.20260928.7a0f122.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "pgjshca7nr9w1h4dacprj4g4f059nc06-nixos-system-temperantia-26.11.20260928.7a0f122"
+        }
+      },
+      "env": {},
+      "structuredAttrs": {
+        "allowSubstitutes": false,
+        "buildCommand": "mkdir $out\n\n# This must not be a symlink or the abs_path of the grub builder for the tests\n# will resolve the symlink and we end up with a path that doesn't point to a\n# system closure.\ncp \"$systemd/l...[truncated]",
+        "name": "nixos-system-temperantia-26.11.20260928.7a0f122",
+        "preferLocalBuild": true,
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      }
+    },
+    "xvh1xh3hz4b9pbw6xj8ljb91q5jmvafq-home-manager-path.drv": {
+      "system": "x86_64-linux",
+      "outputs": {
+        "out": {
+          "path": "d82ljj5s39ldks1w3l6bqwm6fv4m9n4z-home-manager-path"
+        }
+      },
+      "env": {},
+      "structuredAttrs": {
+        "allowSubstitutes": false,
+        "buildCommand": "/nix/store/w03i01kiakf4wz7jbp1l59c0bhb3pjca-perl-5.42.3/bin/perl -w /nix/store/8l4s0n61pskzsgr2ccdfj70fd3vcz0gv-builder.pl\neval \"$postBuild\"\n",
+        "name": "home-manager-path",
+        "preferLocalBuild": true,
+        "stdenv": "/nix/store/c29a7xzhhv8nk62w1gls6f6jj8zihggv-stdenv-linux-no-cc"
+      }
+    }
+  }
+}

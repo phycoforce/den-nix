@@ -12,3 +12,7 @@ insert_final_newline = true
 indent_style = space
 indent_size = 2
 
+# gofmt's tab indentation is mandatory and non-configurable.
+[*.go]
+indent_style = tab
+

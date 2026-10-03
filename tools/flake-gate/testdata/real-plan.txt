@@ -1,0 +1,12 @@
+warning: Git tree '/tmp/claude-1000/-home-aaron-nixconfig-den-desktop/72b1d518-328d-4da4-800a-bd77c2853501/scratchpad/go-spike/repo' is dirty
+these 10 derivations will be built:
+  /nix/store/9x1s2vzbdpmc7b5vpaj2rmivg73i7prp-options.json.drv
+  /nix/store/rpdpdm6xr8m68glkv1bh72m4c23y2h4h-home-configuration-reference-manpage.drv
+  /nix/store/xvh1xh3hz4b9pbw6xj8ljb91q5jmvafq-home-manager-path.drv
+  /nix/store/l5iii0ixq9pvc15pydp26n4srk84slm8-activation-script.drv
+  /nix/store/1dy2qi5xbr705f9ij4l91y8pvz8gqg30-home-manager-generation.drv
+  /nix/store/2wa19k4vqwbdlcz86nx5p8wka8k4qjvp-unit-home-manager-aaron.service.drv
+  /nix/store/8xxgmy7inc4gxa2c0rmlcw9hfh20xd96-system-units.drv
+  /nix/store/igy8hghpqfrabyl633xx2g76b2wmwmsg-etc.drv
+  /nix/store/68ybnrjqdv5fvmravrqzhldxn1l448ym-activate.drv
+  /nix/store/xdmb0qssl53s7cg372697c0p1amsi0rz-nixos-system-temperantia-26.11.20260928.7a0f122.drv

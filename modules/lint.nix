@@ -36,12 +36,19 @@
 
         actionlint.enable = true;
 
+        # tools/flake-gate (the plan-gate.sh shadow port).
+        gofmt.enable = true;
+        govet.enable = true;
+
         # Enforce .editorconfig across all file types, not just *.nix.
         editorconfig-checker = {
           enable = true;
           excludes = [
             "flake\\.lock"
             "^result"
+            # A raw-string JSON fixture, 2-space-indented by design (test
+            # data, not Go code) - gofmt never reformats string literals.
+            "tools/flake-gate/internal/lockfile/lockfile_test\\.go"
           ];
         };
 

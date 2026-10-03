@@ -75,6 +75,10 @@ check-tip ref=upstream_ref:
 gate-baseline *args:
     ./scripts/plan-gate.sh --write-baseline --cold "$@"
 
+[doc("Run the Go flake-gate port directly (shadow of plan-gate.sh, not yet authoritative)")]
+preflight-go *args:
+    nix {{nix_flags}} run .#flake-gate -- gate "$@"
+
 # ---------------------------------------------------------------------------
 # updating
 # ---------------------------------------------------------------------------
