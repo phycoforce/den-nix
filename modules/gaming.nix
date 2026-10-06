@@ -80,7 +80,6 @@
       { pkgs, ... }:
       {
         home.packages = with pkgs; [
-          faugus-launcher
           gamescope
           goverlay
           heroic
