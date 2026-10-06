@@ -104,9 +104,20 @@ bump() { # bump <lockfile-out-of-band-log> <inputs...>; fails on rate-limit lies
 }
 
 gate_reason() { # gate_reason <plan-gate-stderr>: one classified line for hold()
-  local err="$1" kind class pnames reasons=() joined
+  local err="$1" kind class pnames reasons=() joined line detail
   if grep -q '^!! plan-gate: evaluation failed' "$err"; then
-    echo "eval failed"
+    # plan-gate's "   eval: <class> - <detail>" line; the last one, so a
+    # look-alike line inside nix's own trace never wins.
+    line="$(sed -nE 's/^   eval: //p' "$err" | tail -1)"
+    class="${line%% - *}"; detail="${line#* - }"
+    case "$class" in
+      unfree) echo "eval failed, needs a repo change: $detail - allowlist it as unfree or drop its consumer; never self-heals" ;;
+      non-source|unsupported-platform|refused) echo "eval failed, needs a repo change: $detail - never self-heals" ;;
+      insecure) echo "eval failed, needs a repo change: $detail - permit it or drop its consumer; self-heals only once nixpkgs ships a fix" ;;
+      broken) echo "eval failed: $detail - self-heals once nixpkgs fixes it" ;;
+      other) echo "eval failed: $detail - see the run log" ;;
+      *) echo "eval failed" ;;
+    esac
     return
   fi
   # Grouped by plan-gate's per-row Hydra verdict: whether a hold self-heals is
@@ -170,19 +181,24 @@ cannot_judge() {
 }
 
 # shadow_compare <label> <bash_rc> <bash_out> <bash_err>: exit code, summary
-# line and sorted VIOLATION lines (bash order is nondeterministic). Report-only:
-# it must never alter rc, outputs, the commit message or a hold reason.
+# line, sorted VIOLATION lines (bash order is nondeterministic) and the
+# eval-failure block, without which an eval failure agrees vacuously.
+# Report-only: it must never alter rc, outputs, the commit message or a hold
+# reason.
 shadow_compare() {
   local label="$1" bash_rc="$2" bash_out="$3" bash_err="$4"
   [ -n "$FLAKE_GATE_SHADOW_BIN" ] || return 0
   local go_out="$workdir/shadow-$label.out" go_err="$workdir/shadow-$label.err" go_rc=0
   "$FLAKE_GATE_SHADOW_BIN" gate --repo "$REPO_ROOT" >"$go_out" 2>"$go_err" || go_rc=$?
-  local bash_summary go_summary bash_viol go_viol
+  local bash_summary go_summary bash_viol go_viol bash_eval go_eval
   bash_summary="$(grep '^>> plan-gate: ' "$bash_out" 2>/dev/null | head -1 || true)"
   go_summary="$(grep '^>> plan-gate: ' "$go_out" 2>/dev/null | head -1 || true)"
   bash_viol="$(grep '^!! VIOLATION: ' "$bash_err" 2>/dev/null | sort || true)"
   go_viol="$(grep '^!! VIOLATION: ' "$go_err" 2>/dev/null | sort || true)"
-  if [ "$bash_rc" = "$go_rc" ] && [ "$bash_summary" = "$go_summary" ] && [ "$bash_viol" = "$go_viol" ]; then
+  bash_eval="$(sed -n '/^!! plan-gate: evaluation failed/,$p' "$bash_err" 2>/dev/null || true)"
+  go_eval="$(sed -n '/^!! plan-gate: evaluation failed/,$p' "$go_err" 2>/dev/null || true)"
+  if [ "$bash_rc" = "$go_rc" ] && [ "$bash_summary" = "$go_summary" ] && [ "$bash_viol" = "$go_viol" ] \
+    && [ "$bash_eval" = "$go_eval" ]; then
     SHADOW_AGREED=$((SHADOW_AGREED + 1))
     echo ">> flake-gate shadow: agrees [$label]"
     return 0
@@ -197,12 +213,17 @@ shadow_compare() {
     echo "   violation sets differ:" >&2
     diff <(echo "$bash_viol") <(echo "$go_viol") 2>/dev/null | sed 's/^/   /' >&2 || true
   fi
+  if [ "$bash_eval" != "$go_eval" ]; then
+    echo "   eval-failure blocks differ:" >&2
+    diff <(echo "$bash_eval") <(echo "$go_eval") 2>/dev/null | sed 's/^/   /' >&2 || true
+  fi
   if [ "$MODE" = "ci" ]; then
     echo "::warning::flake-gate shadow disagrees [$label] (bash exit $bash_rc vs go exit $go_rc)"
     {
       printf -- '- **[%s]** disagrees: bash exit %s, go exit %s\n' "$label" "$bash_rc" "$go_rc"
       [ "$bash_summary" = "$go_summary" ] || printf '  - summary: bash `%s` vs go `%s`\n' "$bash_summary" "$go_summary"
       [ "$bash_viol" = "$go_viol" ] || echo "  - violation sets differ (see run log)"
+      [ "$bash_eval" = "$go_eval" ] || echo "  - eval-failure blocks differ (see run log)"
     } >>"$workdir/shadow-summary.md"
   fi
   return 0

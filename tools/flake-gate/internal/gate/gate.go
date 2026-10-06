@@ -110,10 +110,12 @@ func Run(ctx context.Context, probeClient *probe.Client, hydraClient *hydra.Clie
 		if net.CannotJudge {
 			return cannotJudge(net.Reason, net.Evidence, health)
 		}
+		cause := nixplan.ClassifyEvalFailure(in.PlanText)
+		stderr := append(splitLines(in.PlanText), "!! plan-gate: evaluation failed (see above).")
 		return Result{
 			Verdict: Violation,
-			Reason:  "evaluation failed",
-			Stderr:  append(splitLines(in.PlanText), "!! plan-gate: evaluation failed (see above)."),
+			Reason:  "evaluation failed: " + cause.Class,
+			Stderr:  append(stderr, cause.Lines()...),
 			Health:  health,
 		}
 	}

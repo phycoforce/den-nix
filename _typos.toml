@@ -5,5 +5,9 @@
 # header) written by plan-gate.sh --write-baseline; hex revs misflag as words.
 extend-exclude = ["flake.lock", "scripts/plan-gate-baseline.txt"]
 
+[default]
+# nixpkgs license ids in captured eval errors ("nd" reads as a typo of "and").
+extend-ignore-re = ["cc-by-nc-nd-[0-9]+"]
+
 [default.extend-words]
 # Add project-specific tokens here only if typos ever misflags a real word.

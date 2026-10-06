@@ -202,6 +202,77 @@ hydra_verdict() {
   return 0
 }
 
+# eval_cause <plan>: classify nix's ROOT error (the last `error:` line - the
+# trace prints outermost-first) so a hold names its cause and whether it
+# self-heals. For a nixpkgs check-meta refusal, "via" is the nearest
+# pkgs/by-name frame above the root: the package that pulled the refused one in.
+eval_cause() {
+  local msg="" option="" bynames="" name pname why class detail via="" next b
+  { IFS= read -r msg; IFS= read -r option; IFS= read -r bynames; } < <(awk '
+    /^[[:space:]]*error:/ { root = NR }
+    { l[NR] = $0 }
+    index($0, "while evaluating the option `") {
+      o = $0; sub(/.*while evaluating the option `/, "", o); sub(/'\''.*/, "", o); opt[NR] = o
+    }
+    match($0, /\/pkgs\/by-name\/[^\/]+\/[^\/]+\/package\.nix/) {
+      n = split(substr($0, RSTART, RLENGTH), p, "/"); byname[NR] = p[n - 1]
+    }
+    END {
+      m = ""; o = ""; names = ""
+      if (root) {
+        # A bare "error:" or a "...:" header carries its message on the next lines.
+        m = l[root]; sub(/^[[:space:]]*error:[[:space:]]*/, "", m); sub(/[[:space:]]+$/, "", m)
+        j = root + 1
+        for (k = 0; k < 2 && (m == "" || m ~ /:$/); k++) {
+          while (j <= NR && l[j] ~ /^[[:space:]]*$/) j++
+          if (j > NR) break
+          s = l[j++]; sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s)
+          m = (m == "" ? s : m " " s)
+        }
+        for (i = root - 1; i >= 1; i--) if (i in opt) { o = opt[i]; break }
+        for (i = root - 1; i >= 1; i--) if (i in byname) names = names byname[i] " "
+      }
+      print m; print o; print names
+    }' "$1") || true
+  msg="$(sed -E 's#/nix/store/[0-9a-z]{32}-source/##g' <<<"$msg")"
+  name="$(sed -nE "s/^Refusing to evaluate package '([^']+)' in [^ ]+ because it .*/\1/p" <<<"$msg")"
+  if [ -n "$name" ]; then
+    why="${msg#* because it }"
+    pname="$(sed -E 's/-[0-9].*$//' <<<"$name")"
+    for b in $bynames; do
+      if [ "$b" != "$pname" ]; then via="$b"; break; fi
+    done
+    detail="$name $why${via:+, via $via}"
+    case "$why" in
+      "has an unfree license"*)
+        class=unfree
+        next="needs a repo change - allowlist \"$pname\" as unfree (Hydra never builds it, so baseline it too), or drop the package that pulls it in. Never self-heals." ;;
+      "contains elements not built from source"*)
+        class=non-source
+        next="needs a repo change - allow \"$pname\" as non-source, or drop the package that pulls it in. Never self-heals." ;;
+      "is marked as insecure"*)
+        class=insecure
+        next="needs a repo change - permit \"$name\" in permittedInsecurePackages, or drop the package that pulls it in; self-heals only once nixpkgs ships a fixed version." ;;
+      "is not available on the requested hostPlatform"*)
+        class=unsupported-platform
+        next="needs a repo change - drop or replace the package that pulls it in. Never self-heals." ;;
+      "has problems:"*"- broken"*)
+        class=broken
+        next="hold - self-heals once nixpkgs fixes it; dropping the package that pulls it in unblocks sooner." ;;
+      *)
+        class=refused
+        next="needs a repo change - follow the remediation nix printed above." ;;
+    esac
+  else
+    class=other
+    detail="${msg:-nix printed no error message}"
+    next="read the trace above - a removed or renamed nixpkgs attribute or option needs a repo change and never self-heals."
+  fi
+  echo "   eval: $class - $detail"
+  [ -z "$option" ] || echo "   option: $option"
+  echo "   next: $next"
+}
+
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/plan-gate.XXXXXX")"
 # --cold store paths are read-only, hence the chmod. The trailing || true is
 # load-bearing: a failing EXIT trap REPLACES the exit status, turning a 2
@@ -278,6 +349,7 @@ if [ "$nix_rc" -ne 0 ]; then
   fi
   cat "$plan" >&2
   echo "!! plan-gate: evaluation failed (see above)." >&2
+  eval_cause "$plan" >&2
   exit 1
 fi
 if grep -qE "unable to download '.*nix-cache-info'|API rate limit exceeded" "$plan"; then

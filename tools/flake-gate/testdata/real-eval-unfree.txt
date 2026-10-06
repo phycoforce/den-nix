@@ -1,0 +1,785 @@
+warning: Git tree '/home/runner/work/den-nix/den-nix' is dirty
+copying path '/nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source' from 'https://cache.nixos.org'...
+copying path '/nix/store/adcpmshidndclaz4dxjsgklrx3gqhaxp-source' from 'https://nix-community.cachix.org'...
+copying path '/nix/store/01x5k4nlxcpyd85nnr0b9gm89rm8ff4x-source' from 'https://attic.xuyh0120.win/lantian'...
+copying path '/nix/store/yj1wxm9hh8610iyzqnz75kvs6xl8j3my-source' from 'https://attic.xuyh0120.win/lantian'...
+copying path '/nix/store/40h4dglabpdbvbx535xgfz3ifiz49cz6-source' from 'https://nix-community.cachix.org'...
+copying path '/nix/store/9iv83r72z5xwgylkwms1qip1ijnr6jqs-source' from 'https://nix-community.cachix.org'...
+copying path '/nix/store/jfhxabp199nagprgx26pms1gdz408s2c-source' from 'https://nix-community.cachix.org'...
+copying path '/nix/store/zv2aprp5zyl4knpffxkkfadzm4wz0m30-source' from 'https://attic.xuyh0120.win/lantian'...
+error:
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:1706:17:
+         1705|         zipAttrsWith (
+         1706|           name: values:
+             |                 ^
+         1707|           let
+
+       … while calling the 'head' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:1711:13:
+         1710|           if length values == 1 || pred here (elemAt values 1) (head values) then
+         1711|             head values
+             |             ^
+         1712|           else
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:283:38:
+          282|             let
+          283|               recurse = mapAttrs (n: v: if isOption v then v.value else recurse v);
+             |                                      ^
+          284|             in
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1181:7:
+         1180|     // {
+         1181|       value = addErrorContext "while evaluating the option `${showOption loc}':" (
+             |       ^
+         1182|         # Apply the 'apply' function to the merged value. This allows options to
+
+       … while evaluating the option `system.build.toplevel':
+
+       … while evaluating the attribute 'mergedValue'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1276:5:
+         1275|     # Type-check the remaining definitions, and merge them. Or throw if no definitions.
+         1276|     mergedValue =
+             |     ^
+         1277|       if isDefined then
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1277:7:
+         1276|     mergedValue =
+         1277|       if isDefined then
+             |       ^
+         1278|         if type.merge ? v2 then
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1231:7:
+         1230|       # original singleton straight to the type merge.
+         1231|       if
+             |       ^
+         1232|         length defs == 1
+
+       … in the right operand of the AND (&&) operator
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1233:9:
+         1232|         length defs == 1
+         1233|         && addErrorContext "while evaluating definitions from `${(head defs).file}':" (
+             |         ^
+         1234|           !(head defs).value ? _type
+
+       … while evaluating definitions from `/nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/nixos/modules/system/activation/top-level.nix':
+
+       … in the argument of the not operator
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1234:12:
+         1233|         && addErrorContext "while evaluating definitions from `${(head defs).file}':" (
+         1234|           !(head defs).value ? _type
+             |            ^
+         1235|         )
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:866:21:
+          865|             inherit (module) file;
+          866|             inherit value;
+             |                     ^
+          867|           }) module.config
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/activation/top-level.nix:78:26:
+           77|   # Handle assertions and warnings
+           78|   baseSystemAssertWarn = lib.asserts.checkAssertWarn config.assertions config.warnings baseSystem;
+             |                          ^
+           79|
+
+       … while calling 'checkAssertWarn'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/asserts.nix:196:27:
+          195|   checkAssertWarn =
+          196|     assertions: warnings: val:
+             |                           ^
+          197|     let
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/asserts.nix:203:7:
+          202|     else
+          203|       showWarnings warnings val;
+             |       ^
+          204|
+
+       … while calling 'showWarnings'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1051:28:
+         1050|
+         1051|   showWarnings = warnings: res: foldr warn res warnings;
+             |                            ^
+         1052|
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1051:33:
+         1050|
+         1051|   showWarnings = warnings: res: foldr warn res warnings;
+             |                                 ^
+         1052|
+
+       … while calling 'foldr'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/lists.nix:138:14:
+          137|   foldr =
+          138|     op: nul: list:
+             |              ^
+          139|     let
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/lists.nix:143:5:
+          142|     in
+          143|     fold' 0;
+             |     ^
+          144|
+
+       … while calling 'fold''
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/lists.nix:141:15:
+          140|       len = length list;
+          141|       fold' = n: if n == len then nul else op (elemAt list n) (fold' (n + 1));
+             |               ^
+          142|     in
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/lists.nix:141:18:
+          140|       len = length list;
+          141|       fold' = n: if n == len then nul else op (elemAt list n) (fold' (n + 1));
+             |                  ^
+          142|     in
+
+       … while calling the 'length' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/lists.nix:140:13:
+          139|     let
+          140|       len = length list;
+             |             ^
+          141|       fold' = n: if n == len then nul else op (elemAt list n) (fold' (n + 1));
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/activation/top-level.nix:78:72:
+           77|   # Handle assertions and warnings
+           78|   baseSystemAssertWarn = lib.asserts.checkAssertWarn config.assertions config.warnings baseSystem;
+             |                                                                        ^
+           79|
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:283:38:
+          282|             let
+          283|               recurse = mapAttrs (n: v: if isOption v then v.value else recurse v);
+             |                                      ^
+          284|             in
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1181:7:
+         1180|     // {
+         1181|       value = addErrorContext "while evaluating the option `${showOption loc}':" (
+             |       ^
+         1182|         # Apply the 'apply' function to the merged value. This allows options to
+
+       … while evaluating the option `warnings':
+
+       … while evaluating the attribute 'mergedValue'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1276:5:
+         1275|     # Type-check the remaining definitions, and merge them. Or throw if no definitions.
+         1276|     mergedValue =
+             |     ^
+         1277|       if isDefined then
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1277:7:
+         1276|     mergedValue =
+         1277|       if isDefined then
+             |       ^
+         1278|         if type.merge ? v2 then
+
+       … while evaluating the attribute 'values'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1270:11:
+         1269|         {
+         1270|           values = defsSorted;
+             |           ^
+         1271|           inherit (defsFiltered) highestPrio;
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1264:13:
+         1263|             # Avoid sorting if we don't have to.
+         1264|             if any (def: def.value._type or "" == "order") defsFiltered.values then
+             |             ^
+         1265|               sortProperties defsFiltered.values
+
+       … while calling the 'any' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1264:16:
+         1263|             # Avoid sorting if we don't have to.
+         1264|             if any (def: def.value._type or "" == "order") defsFiltered.values then
+             |                ^
+         1265|               sortProperties defsFiltered.values
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1259:26:
+         1258|           # Process mkOverride properties.
+         1259|           defsFiltered = filterOverrides' defsNormalized;
+             |                          ^
+         1260|
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1460:5:
+         1459|     in
+         1460|     defs:
+             |     ^
+         1461|     # Optimize for the singleton case, equivalent to the `else` clause.
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1462:5:
+         1461|     # Optimize for the singleton case, equivalent to the `else` clause.
+         1462|     if length defs == 1 then
+             |     ^
+         1463|       {
+
+       … while calling the 'length' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1462:8:
+         1461|     # Optimize for the singleton case, equivalent to the `else` clause.
+         1462|     if length defs == 1 then
+             |        ^
+         1463|       {
+
+       … while calling the 'concatMap' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1244:28:
+         1243|           # Process mkMerge and mkIf properties.
+         1244|           defsNormalized = concatMap (
+             |                            ^
+         1245|             m:
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1245:13:
+         1244|           defsNormalized = concatMap (
+         1245|             m:
+             |             ^
+         1246|             map (
+
+       … while calling the 'map' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1246:13:
+         1245|             m:
+         1246|             map (
+             |             ^
+         1247|               value:
+
+       … while evaluating definitions from `/nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/nixos/modules/system/boot/systemd.nix':
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1255:82:
+         1254|                 }
+         1255|             ) (addErrorContext "while evaluating definitions from `${m.file}':" (dischargeProperties m.value))
+             |                                                                                  ^
+         1256|           ) defs;
+
+       … while calling 'dischargeProperties'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1411:5:
+         1410|   dischargeProperties =
+         1411|     def:
+             |     ^
+         1412|     if def ? _type then
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1412:5:
+         1411|     def:
+         1412|     if def ? _type then
+             |     ^
+         1413|       if def._type == "if" then
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:866:21:
+          865|             inherit (module) file;
+          866|             inherit value;
+             |                     ^
+          867|           }) module.config
+
+       … while calling the 'concatLists' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/boot/systemd.nix:547:7:
+          546|       in
+          547|       concatLists (
+             |       ^
+          548|         mapAttrsToList (
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/boot/systemd.nix:549:17:
+          548|         mapAttrsToList (
+          549|           name: service:
+             |                 ^
+          550|           let
+
+       … while calling the 'concatLists' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/boot/systemd.nix:555:11:
+          554|           in
+          555|           concatLists [
+             |           ^
+          556|             (optional (type == "oneshot" && (restart == "always" || restart == "on-success"))
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/boot/systemd.nix:556:14:
+          555|           concatLists [
+          556|             (optional (type == "oneshot" && (restart == "always" || restart == "on-success"))
+             |              ^
+          557|               "Service '${name}.service' with 'Type=oneshot' cannot have 'Restart=always' or 'Restart=on-success'"
+
+       … while calling 'optional'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/lists.nix:801:20:
+          800|   */
+          801|   optional = cond: elem: if cond then [ elem ] else [ ];
+             |                    ^
+          802|
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/lists.nix:801:26:
+          800|   */
+          801|   optional = cond: elem: if cond then [ elem ] else [ ];
+             |                          ^
+          802|
+
+       … in the left operand of the AND (&&) operator
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/boot/systemd.nix:556:42:
+          555|           concatLists [
+          556|             (optional (type == "oneshot" && (restart == "always" || restart == "on-success"))
+             |                                          ^
+          557|               "Service '${name}.service' with 'Type=oneshot' cannot have 'Restart=always' or 'Restart=on-success'"
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/nixos/modules/system/boot/systemd.nix:551:20:
+          550|           let
+          551|             type = service.serviceConfig.Type or "";
+             |                    ^
+          552|             restart = service.serviceConfig.Restart or "no";
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:283:38:
+          282|             let
+          283|               recurse = mapAttrs (n: v: if isOption v then v.value else recurse v);
+             |                                      ^
+          284|             in
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1181:7:
+         1180|     // {
+         1181|       value = addErrorContext "while evaluating the option `${showOption loc}':" (
+             |       ^
+         1182|         # Apply the 'apply' function to the merged value. This allows options to
+
+       … while evaluating the option `systemd.services.home-manager-aaron.serviceConfig':
+
+       … while evaluating the attribute 'mergedValue'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1276:5:
+         1275|     # Type-check the remaining definitions, and merge them. Or throw if no definitions.
+         1276|     mergedValue =
+             |     ^
+         1277|       if isDefined then
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/types.nix:1028:13:
+         1027|             headError = checkDefsForError check loc defs;
+         1028|             value = mapAttrs (
+             |             ^
+         1029|               n: v:
+
+       … while calling the 'mapAttrs' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/types.nix:1028:21:
+         1027|             headError = checkDefsForError check loc defs;
+         1028|             value = mapAttrs (
+             |                     ^
+         1029|               n: v:
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/types.nix:1022:17:
+         1021|                 # Meaning it is less lazy
+         1022|                 filterAttrs (n: v: v.optionalValue ? value) (
+             |                 ^
+         1023|                   zipAttrsWith (name: defs: mergeDefinitions (loc ++ [ name ]) elemType defs) (pushPositions defs)
+
+       … while calling 'filterAttrs'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:667:23:
+          666|   */
+          667|   filterAttrs = pred: set: removeAttrs set (filter (name: !pred name set.${name}) (attrNames set));
+             |                       ^
+          668|
+
+       … while calling the 'removeAttrs' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:667:28:
+          666|   */
+          667|   filterAttrs = pred: set: removeAttrs set (filter (name: !pred name set.${name}) (attrNames set));
+             |                            ^
+          668|
+
+       … while calling the 'filter' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:667:45:
+          666|   */
+          667|   filterAttrs = pred: set: removeAttrs set (filter (name: !pred name set.${name}) (attrNames set));
+             |                                             ^
+          668|
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:667:53:
+          666|   */
+          667|   filterAttrs = pred: set: removeAttrs set (filter (name: !pred name set.${name}) (attrNames set));
+             |                                                     ^
+          668|
+
+       … in the argument of the not operator
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:667:60:
+          666|   */
+          667|   filterAttrs = pred: set: removeAttrs set (filter (name: !pred name set.${name}) (attrNames set));
+             |                                                            ^
+          668|
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:667:60:
+          666|   */
+          667|   filterAttrs = pred: set: removeAttrs set (filter (name: !pred name set.${name}) (attrNames set));
+             |                                                            ^
+          668|
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/types.nix:1022:33:
+         1021|                 # Meaning it is less lazy
+         1022|                 filterAttrs (n: v: v.optionalValue ? value) (
+             |                                 ^
+         1023|                   zipAttrsWith (name: defs: mergeDefinitions (loc ++ [ name ]) elemType defs) (pushPositions defs)
+
+       … while evaluating the attribute 'optionalValue'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1342:5:
+         1341|
+         1342|     optionalValue = if isDefined then { value = mergedValue; } else { };
+             |     ^
+         1343|   };
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1342:21:
+         1341|
+         1342|     optionalValue = if isDefined then { value = mergedValue; } else { };
+             |                     ^
+         1343|   };
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1231:7:
+         1230|       # original singleton straight to the type merge.
+         1231|       if
+             |       ^
+         1232|         length defs == 1
+
+       … in the right operand of the AND (&&) operator
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1233:9:
+         1232|         length defs == 1
+         1233|         && addErrorContext "while evaluating definitions from `${(head defs).file}':" (
+             |         ^
+         1234|           !(head defs).value ? _type
+
+       … while evaluating definitions from `/nix/store/40h4dglabpdbvbx535xgfz3ifiz49cz6-source/nixos':
+
+       … in the argument of the not operator
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1234:12:
+         1233|         && addErrorContext "while evaluating definitions from `${(head defs).file}':" (
+         1234|           !(head defs).value ? _type
+             |            ^
+         1235|         )
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/types.nix:969:11:
+          968|           inherit (def) file;
+          969|           value = v;
+             |           ^
+          970|         }) def.value
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/types.nix:969:11:
+          968|           inherit (def) file;
+          969|           value = v;
+             |           ^
+          970|         }) def.value
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:1706:17:
+         1705|         zipAttrsWith (
+         1706|           name: values:
+             |                 ^
+         1707|           let
+
+       … while calling the 'head' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/attrsets.nix:1711:13:
+         1710|           if length values == 1 || pred here (elemAt values 1) (head values) then
+         1711|             head values
+             |             ^
+         1712|           else
+
+       … while calling the 'derivationStrict' builtin
+         at «nix-internal»/derivation-internal.nix:37:12:
+           36|
+           37|   strict = derivationStrict drvAttrs;
+             |            ^
+           38|
+
+       … while evaluating derivation 'home-manager-generation'
+         whose name attribute is located at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/make-derivation.nix:651:11
+
+       … while evaluating attribute 'buildCommand' of derivation 'home-manager-generation'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/build-support/trivial-builders/default.nix:88:9:
+           87|         inherit name;
+           88|         buildCommand = lib.toFunction buildCommand finalAttrs;
+             |         ^
+           89|         passAsFile = defaultPassAsFile ++ (userAttrs.passAsFile or [ ]);
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/build-support/trivial-builders/default.nix:88:24:
+           87|         inherit name;
+           88|         buildCommand = lib.toFunction buildCommand finalAttrs;
+             |                        ^
+           89|         passAsFile = defaultPassAsFile ++ (userAttrs.passAsFile or [ ]);
+
+       … while calling 'toFunction'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1211:16:
+         1210|   */
+         1211|   toFunction = v: if isFunction v then v else k: v;
+             |                ^
+         1212|
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1211:19:
+         1210|   */
+         1211|   toFunction = v: if isFunction v then v else k: v;
+             |                   ^
+         1212|
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1211:22:
+         1210|   */
+         1211|   toFunction = v: if isFunction v then v else k: v;
+             |                      ^
+         1212|
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1131:5:
+         1130|     in
+         1131|     f: isFunction f || (f ? __functor && isFunction f.__functor && isFunction (f.__functor f));
+             |     ^
+         1132|
+
+       … in the left operand of the OR (||) operator
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1131:21:
+         1130|     in
+         1131|     f: isFunction f || (f ? __functor && isFunction f.__functor && isFunction (f.__functor f));
+             |                     ^
+         1132|
+
+       … while calling the 'isFunction' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/trivial.nix:1131:8:
+         1130|     in
+         1131|     f: isFunction f || (f ? __functor && isFunction f.__functor && isFunction (f.__functor f));
+             |        ^
+         1132|
+
+       … while calling the 'derivationStrict' builtin
+         at «nix-internal»/derivation-internal.nix:37:12:
+           36|
+           37|   strict = derivationStrict drvAttrs;
+             |            ^
+           38|
+
+       … while evaluating derivation 'activation-script'
+         whose name attribute is located at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/make-derivation.nix:651:11
+
+       … while evaluating attribute 'text' of derivation 'activation-script'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/build-support/trivial-builders/default.nix:137:11:
+          136|           name
+          137|           text
+             |           ^
+          138|           executable
+
+       … while calling the 'concatStringsSep' builtin
+         at «github:nix-community/home-manager/aa23f720d022187228bc264f759aef6b80233bcf?narHash=sha256-%2BlrD%2Bsxc2RKUWXRBAcggn7uBCFeJgnV75jD/cz7gJRA%3D»/modules/home-environment.nix:827:13:
+          826|           if sortedCommands ? result then
+          827|             lib.concatStringsSep "\n" (map mkCmd sortedCommands.result)
+             |             ^
+          828|           else
+
+       … while calling 'mkCmd'
+         at «github:nix-community/home-manager/aa23f720d022187228bc264f759aef6b80233bcf?narHash=sha256-%2BlrD%2Bsxc2RKUWXRBAcggn7uBCFeJgnV75jD/cz7gJRA%3D»/modules/home-environment.nix:820:17:
+          819|       let
+          820|         mkCmd = res: ''
+             |                 ^
+          821|           _iNote "Activating %s" "${res.name}"
+
+       … while evaluating the attribute 'data'
+         at «github:nix-community/home-manager/aa23f720d022187228bc264f759aef6b80233bcf?narHash=sha256-%2BlrD%2Bsxc2RKUWXRBAcggn7uBCFeJgnV75jD/cz7gJRA%3D»/modules/lib/dag.nix:115:45:
+          114|       {
+          115|         result = map (v: { inherit (v) name data; }) sorted.result;
+             |                                             ^
+          116|       }
+
+       … while evaluating the attribute 'data'
+         at «github:nix-community/home-manager/aa23f720d022187228bc264f759aef6b80233bcf?narHash=sha256-%2BlrD%2Bsxc2RKUWXRBAcggn7uBCFeJgnV75jD/cz7gJRA%3D»/modules/lib/dag.nix:108:21:
+          107|         name = n;
+          108|         inherit (v) data;
+             |                     ^
+          109|         after = v.after ++ dagBefore n;
+
+       … from call site
+         at «github:nix-community/home-manager/aa23f720d022187228bc264f759aef6b80233bcf?narHash=sha256-%2BlrD%2Bsxc2RKUWXRBAcggn7uBCFeJgnV75jD/cz7gJRA%3D»/modules/lib/dag.nix:108:21:
+          107|         name = n;
+          108|         inherit (v) data;
+             |                     ^
+          109|         after = v.after ++ dagBefore n;
+
+       … while calling anonymous lambda
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:283:38:
+          282|             let
+          283|               recurse = mapAttrs (n: v: if isOption v then v.value else recurse v);
+             |                                      ^
+          284|             in
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1181:7:
+         1180|     // {
+         1181|       value = addErrorContext "while evaluating the option `${showOption loc}':" (
+             |       ^
+         1182|         # Apply the 'apply' function to the merged value. This allows options to
+
+       … while evaluating the option `home-manager.users.aaron.home.activation.installPackages.data':
+
+       (12 duplicate frames omitted)
+
+       … while evaluating definitions from `/nix/store/40h4dglabpdbvbx535xgfz3ifiz49cz6-source/modules/home-environment.nix':
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1255:82:
+         1254|                 }
+         1255|             ) (addErrorContext "while evaluating definitions from `${m.file}':" (dischargeProperties m.value))
+             |                                                                                  ^
+         1256|           ) defs;
+
+       … while calling 'dischargeProperties'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1411:5:
+         1410|   dischargeProperties =
+         1411|     def:
+             |     ^
+         1412|     if def ? _type then
+
+       … while evaluating a branch condition
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:1412:5:
+         1411|     def:
+         1412|     if def ? _type then
+             |     ^
+         1413|       if def._type == "if" then
+
+       … while evaluating the attribute 'value'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/modules.nix:866:21:
+          865|             inherit (module) file;
+          866|             inherit value;
+             |                     ^
+          867|           }) module.config
+
+       … while calling the 'derivationStrict' builtin
+         at «nix-internal»/derivation-internal.nix:37:12:
+           36|
+           37|   strict = derivationStrict drvAttrs;
+             |            ^
+           38|
+
+       … while evaluating derivation 'home-manager-path'
+         whose name attribute is located at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/make-derivation.nix:651:11
+
+       … while evaluating attribute 'chosenOutputs' of derivation 'home-manager-path'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/build-support/buildenv/default.nix:113:9:
+          112|
+          113|         chosenOutputs = map (drv: {
+             |         ^
+          114|           paths =
+
+       … while evaluating list element at index 20
+
+       … while evaluating attribute 'paths'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/build-support/buildenv/default.nix:114:11:
+          113|         chosenOutputs = map (drv: {
+          114|           paths =
+             |           ^
+          115|             # First add the usual output(s): respect if user has chosen explicitly,
+
+       … while evaluating list element at index 0
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/build-support/buildenv/default.nix:114:11:
+          113|         chosenOutputs = map (drv: {
+          114|           paths =
+             |           ^
+          115|             # First add the usual output(s): respect if user has chosen explicitly,
+
+       … while calling the 'derivationStrict' builtin
+         at «nix-internal»/derivation-internal.nix:37:12:
+           36|
+           37|   strict = derivationStrict drvAttrs;
+             |            ^
+           38|
+
+       … while evaluating derivation 'faugus-launcher-2.4.2'
+         whose name attribute is located at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/make-derivation.nix:651:11
+
+       … while evaluating attribute 'postPatch' of derivation 'faugus-launcher-2.4.2'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/by-name/fa/faugus-launcher/package.nix:63:3:
+           62|
+           63|   postPatch = ''
+             |   ^
+           64|     substituteInPlace faugus-launcher \
+
+       … in the condition of the assert statement
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/lib/customisation.nix:420:13:
+          419|           outPath =
+          420|             assert condition;
+             |             ^
+          421|             drv.outPath;
+
+       … while evaluating the attribute 'handled'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/check-meta.nix:685:9:
+          684|         valid = "no";
+          685|         handled = handle {
+             |         ^
+          686|           inherit attrs meta;
+
+       … from call site
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/check-meta.nix:685:19:
+          684|         valid = "no";
+          685|         handled = handle {
+             |                   ^
+          686|           inherit attrs meta;
+
+       … while calling 'handle'
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/check-meta.nix:622:5:
+          621|   handle =
+          622|     {
+             |     ^
+          623|       attrs,
+
+       … while calling the 'seq' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/check-meta.nix:656:5:
+          655|     # Give all warnings first, then error if any
+          656|     seq (foldl' giveWarning null warnings) withError;
+             |     ^
+          657|
+
+       … while calling the 'throw' builtin
+         at «github:nixos/nixpkgs/151fa4e8ddfdd8dd25d945ad94ed54a13de9f6e4?narHash=sha256-Miqqk/ammqnTUxaoCyvtwoPeLbI1ksFyLxi/CazZpWY%3D»/pkgs/stdenv/generic/check-meta.nix:644:13:
+          643|           else
+          644|             throw msg;
+             |             ^
+          645|
+
+       error: Refusing to evaluate package 'lsfg-vk-2.0.0' in /nix/store/0r7xswpqa49y26bl05lydybpw86sywmq-source/pkgs/by-name/ls/lsfg-vk/package.nix:45 because it has an unfree license (‘cc-by-nc-nd-40’)
+       a) To temporarily allow unfree packages, you can use an environment variable
+          for a single invocation of the nix tools.
+
+            $ export NIXPKGS_ALLOW_UNFREE=1
+
+          Note: When using `nix shell`, `nix build`, `nix develop`, etc with a flake,
+                then pass `--impure` in order to allow use of environment variables.
+
+       b) For `nixos-rebuild` you can set
+         { nixpkgs.config.allowUnfree = true; }
+       in configuration.nix to override this.
+
+       Alternatively you can configure a predicate to allow specific packages:
+         { nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+             "lsfg-vk"
+           ];
+         }
+
+       c) For `nix-env`, `nix-build`, `nix-shell` or any other Nix command you can add
+         { allowUnfree = true; }
+       to ~/.config/nixpkgs/config.nix.

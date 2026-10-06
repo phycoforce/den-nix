@@ -217,9 +217,33 @@ func TestRun_EvalFailureStderrHasNoSpuriousBlankLine(t *testing.T) {
 	// (newline-terminated) blob as one element would add one.
 	plan := "error: foo\nerror: bar\n"
 	res := Run(context.Background(), noopProbeClient(), stubHydraClient(), Input{PlanText: plan, NixRC: 1, Policy: testPolicy(t, nil, 2000, 25)})
-	want := []string{"error: foo", "error: bar", "!! plan-gate: evaluation failed (see above)."}
+	want := []string{
+		"error: foo", "error: bar", "!! plan-gate: evaluation failed (see above).",
+		"   eval: other - bar",
+		"   next: read the trace above - a removed or renamed nixpkgs attribute or option needs a repo change and never self-heals.",
+	}
 	if !equalStrings(res.Stderr, want) {
 		t.Fatalf("Stderr = %#v, want %#v", res.Stderr, want)
+	}
+}
+
+func TestRun_RealUnfreeEvalFailureNamesCause(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/real-eval-unfree.txt")
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+	res := Run(context.Background(), noopProbeClient(), stubHydraClient(), Input{PlanText: string(data), NixRC: 1, Policy: testPolicy(t, nil, 2000, 25)})
+	if res.Verdict != Violation || res.Reason != "evaluation failed: unfree" {
+		t.Fatalf("Verdict/Reason = %d/%q, want Violation/%q", res.Verdict, res.Reason, "evaluation failed: unfree")
+	}
+	want := []string{
+		"!! plan-gate: evaluation failed (see above).",
+		"   eval: unfree - lsfg-vk-2.0.0 has an unfree license (‘cc-by-nc-nd-40’), via faugus-launcher",
+		"   option: home-manager.users.aaron.home.activation.installPackages.data",
+		`   next: needs a repo change - allowlist "lsfg-vk" as unfree (Hydra never builds it, so baseline it too), or drop the package that pulls it in. Never self-heals.`,
+	}
+	if got := res.Stderr[len(res.Stderr)-len(want):]; !equalStrings(got, want) {
+		t.Fatalf("eval block:\n got:  %#v\n want: %#v", got, want)
 	}
 }
 
