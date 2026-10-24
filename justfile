@@ -232,12 +232,13 @@ hydra-check +args:
 # applying
 # ---------------------------------------------------------------------------
 
+# nh's inner nix build needs nix_flags too, or the flake's caches are ignored.
 switch: preflight
-    nix {{nix_flags}} run .#{{host}} -- switch
+    nix {{nix_flags}} run .#{{host}} -- switch {{nix_flags}}
 
 [doc("Stage the next generation for boot; use for kernel / NVIDIA changes")]
 boot: preflight
-    nix {{nix_flags}} run .#{{host}} -- boot
+    nix {{nix_flags}} run .#{{host}} -- boot {{nix_flags}}
 
 switch-installed: preflight
     sudo nixos-rebuild switch --flake {{installed_flake}} {{nix_flags}}
