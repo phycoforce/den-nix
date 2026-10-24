@@ -44,8 +44,8 @@ nixos-install \
   --flake /mnt/etc/nixos/den-desktop#temperantia \
   --option extra-experimental-features "nix-command flakes" \
   --option accept-flake-config true \
-  --option extra-substituters "https://nix-community.cachix.org https://phycoforce.cachix.org" \
-  --option extra-trusted-public-keys "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= phycoforce.cachix.org-1:a0cdy4WlT8NxyM5n3jrWdjoBXa5Iri3UVnM7VmvpwvY="
+  --option extra-substituters "https://cache.lantian.pub/lantian https://nix-community.cachix.org https://phycoforce.cachix.org" \
+  --option extra-trusted-public-keys "lantian:WVGO7vsRMSEN+h7Lp7kv6SAmrkEXgUGbbXm7jMDjBuQ= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= phycoforce.cachix.org-1:a0cdy4WlT8NxyM5n3jrWdjoBXa5Iri3UVnM7VmvpwvY="
 
 nixos-enter --root /mnt -c 'passwd aaron'
 reboot
@@ -92,8 +92,8 @@ carrying the cache settings has been built:
 sudo nixos-rebuild switch \
   --flake /etc/nixos/den-desktop#temperantia \
   --option accept-flake-config true \
-  --option extra-substituters "https://nix-community.cachix.org https://phycoforce.cachix.org" \
-  --option extra-trusted-public-keys "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= phycoforce.cachix.org-1:a0cdy4WlT8NxyM5n3jrWdjoBXa5Iri3UVnM7VmvpwvY="
+  --option extra-substituters "https://cache.lantian.pub/lantian https://nix-community.cachix.org https://phycoforce.cachix.org" \
+  --option extra-trusted-public-keys "lantian:WVGO7vsRMSEN+h7Lp7kv6SAmrkEXgUGbbXm7jMDjBuQ= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= phycoforce.cachix.org-1:a0cdy4WlT8NxyM5n3jrWdjoBXa5Iri3UVnM7VmvpwvY="
 ```
 
 ## Troubleshooting

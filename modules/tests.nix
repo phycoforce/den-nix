@@ -20,7 +20,7 @@
       # Multiple desynchronized nixpkgs universes were the update-pain root
       # cause: no root input may drag a private nixpkgs into the lock. Allowed
       # nodes are the root's own, nixpkgs-lib (flake-parts, lib-only), and
-      # nix-cachyos-kernel's pin (plain "nixpkgs"; keeps the kernel off root bumps).
+      # nix-cachyos-kernel's pin (plain "nixpkgs"; its cache depends on it).
       checks.lock-no-private-nixpkgs =
         let
           lock = builtins.fromJSON (builtins.readFile ../flake.lock);

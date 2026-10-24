@@ -15,7 +15,7 @@
       block = [
         {
           prefix = "linux-cachyos";
-          hint = "phycoforce.cachix.org only (no public cache builds this kernel; build and push it before bumping nix-cachyos-kernel)";
+          hint = "cache.lantian.pub/lantian (bump nix-cachyos-kernel only when its release branch is cached; probe: curl -sI <cache>/<hash>.narinfo)";
         }
         # Deliberately NOT a bare "nvidia" prefix: nvidia-open and
         # nvidia-persistenced are never publicly cached for this kernel
@@ -23,7 +23,7 @@
         # kernel bump forever.
         {
           prefix = "nvidia-x11";
-          hint = "phycoforce.cachix.org (unfree: cache.nixos.org never carries it)";
+          hint = "cache.lantian.pub/lantian or phycoforce.cachix.org (unfree: cache.nixos.org never carries it)";
         }
         {
           prefix = "mesa";

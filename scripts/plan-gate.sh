@@ -59,6 +59,7 @@ MAX_HYDRA_LOOKUPS="${PLAN_GATE_MAX_HYDRA_LOOKUPS:-10}"
 # makes "no one serves X" unknowable, so the gate exits 2 instead of guessing.
 SUBSTITUTERS=(
   "https://cache.nixos.org"
+  "https://cache.lantian.pub/lantian"
   "https://nix-community.cachix.org"
   "https://phycoforce.cachix.org"
 )
@@ -80,11 +81,11 @@ KMOD_CLOSURE_RE='^linux-.+-modules(-shrunk)?$'
 # Never tolerated, even if baselined: an unserved match means an hours-long
 # compile or a wedged boot. The hint names the substituter that OWNS it.
 BLOCK_PATTERNS=(
-  "linux-cachyos|phycoforce.cachix.org only (no public cache builds this kernel; build and push it before bumping nix-cachyos-kernel)"
+  "linux-cachyos|cache.lantian.pub/lantian (bump nix-cachyos-kernel only when its release branch is cached; probe: curl -sI <cache>/<hash>.narinfo)"
   # Deliberately NOT a bare "nvidia" prefix: nvidia-open and
   # nvidia-persistenced are never publicly cached for this kernel (cheap, so
   # baseline-tolerated); a bare prefix would hold every kernel bump forever.
-  "nvidia-x11|phycoforce.cachix.org (unfree: cache.nixos.org never carries it)"
+  "nvidia-x11|cache.lantian.pub/lantian or phycoforce.cachix.org (unfree: cache.nixos.org never carries it)"
   "mesa|cache.nixos.org (Hydra; probe: just hydra-check mesa)"
   "niri|cache.nixos.org (Hydra, not in 'tested'; probe: just hydra-check niri)"
   "quickshell|cache.nixos.org (probe: just hydra-check quickshell)"

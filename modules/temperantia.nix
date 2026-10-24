@@ -6,7 +6,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Must NOT follow nixpkgs: its own pin keeps nixpkgs bumps from rebuilding the kernel.
+    # Must NOT follow nixpkgs: its binary cache depends on its own pin.
     nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
 
     qylock = {
