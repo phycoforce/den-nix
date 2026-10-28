@@ -14,7 +14,6 @@
   ];
 
   boot.consoleLogLevel = 3;
-  boot.initrd.verbose = false;
 
   boot.initrd.availableKernelModules = [
     "ahci"
