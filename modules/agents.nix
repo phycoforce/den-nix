@@ -33,7 +33,6 @@
         claudeCode = pkgs.claude-code;
         claudeBin = "${claudeCode}/bin/claude";
         codexBin = "${pkgs.codex}/bin/codex";
-        opencodeBin = "${pkgs.opencode}/bin/opencode";
         remarshalBin = "${pkgs.remarshal}/bin/remarshal";
 
         # Sourced by every agent wrapper and by the activation steps below, so
@@ -112,12 +111,10 @@
         #   transport  "http" or "stdio"
         #   command    stdio argv list
         #   url        shell string, expanded at activation from loader vars
-        #   urlEnv     same URL in OpenCode's `{env:VAR}` syntax
         #   needs      loader vars that must be non-empty, else skip with a
         #              warning rather than register a half-resolved URL
         #   bearerEnv  loader var holding the bearer token (Codex
-        #              bearer_token_env_var; OpenCode renders an
-        #              Authorization header from it)
+        #              bearer_token_env_var)
         #   headersEnv header name -> loader var supplying its value
         #   agents     front-ends to register with; default all
         # The Claude Code jq adapter renders just type+url and asserts no auth
@@ -125,37 +122,30 @@
         allAgents = [
           "claude-code"
           "codex"
-          "opencode"
         ];
         mcpServers = {
           homeops_toolhive = {
             transport = "http";
             needs = [ "HOMEOPS_SECRET_DOMAIN" ];
             url = "https://mcp.$HOMEOPS_SECRET_DOMAIN/mcp";
-            urlEnv = "https://mcp.{env:HOMEOPS_SECRET_DOMAIN}/mcp";
           };
           konflate = {
             transport = "http";
             needs = [ "HOMEOPS_SECRET_DOMAIN_2" ];
             url = "https://konflate.$HOMEOPS_SECRET_DOMAIN_2/mcp";
-            urlEnv = "https://konflate.{env:HOMEOPS_SECRET_DOMAIN_2}/mcp";
           };
           memini = {
             # Claude Code gets Memini from the plugin below (which ships its
             # own MCP server). The Codex plugin's bundled server has a static
             # localhost URL (Codex expands no env in plugin MCP URLs), so it is
             # disabled via codexPluginOverridesJson and registered here instead.
-            agents = [
-              "codex"
-              "opencode"
-            ];
+            agents = [ "codex" ];
             transport = "http";
             needs = [
               "MEMINI_MCP_URL"
               "MEMINI_API_KEY"
             ];
             url = "$MEMINI_MCP_URL";
-            urlEnv = "{env:MEMINI_MCP_URL}";
             bearerEnv = "MEMINI_API_KEY";
             headersEnv."X-Memini-Namespace" = "MEMINI_NAMESPACE";
           };
@@ -215,34 +205,6 @@
           name = "codex";
           program = codexBin;
         };
-
-        opencodeWrapper = mkAgentWrapper {
-          name = "opencode";
-          program = opencodeBin;
-          # `opencode auth` runs plugin-free so a broken plugin cannot block
-          # re-authentication.
-          preExec = ''
-            if [ "''${1-}" = "auth" ]; then
-              shift
-              exec ${opencodeBin} --pure auth "$@"
-            fi
-          '';
-        };
-
-        opencodeMeminiUpdate = pkgs.writeShellScriptBin "opencode-memini-update" ''
-          set -eu
-          opencode_config_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
-          if [ ! -r "$opencode_config_dir/package.json" ]; then
-            echo "ERROR: $opencode_config_dir/package.json is missing" >&2
-            exit 1
-          fi
-
-          if [ -d "$opencode_config_dir/node_modules/@eleboucher/opencode-memini" ]; then
-            exec ${pkgs.bun}/bin/bun update --cwd "$opencode_config_dir" @eleboucher/opencode-memini
-          fi
-
-          exec ${pkgs.bun}/bin/bun install --cwd "$opencode_config_dir"
-        '';
 
         # Claude Code MCP wiring is declarative: a jq merge into the top-level
         # (user-scope) mcpServers of ~/.claude.json. Launching the claude CLI
@@ -473,31 +435,6 @@
             agentPluginsFor "codex"
           )}
         '';
-
-        # OpenCode is fully declarative: the MCP block is a generated file.
-        opencodeMcpConfig = lib.mapAttrs (
-          _: srv:
-          if srv.transport == "stdio" then
-            {
-              type = "local";
-              inherit (srv) command;
-              enabled = true;
-              timeout = 30000;
-            }
-          else
-            {
-              type = "remote";
-              url = srv.urlEnv;
-              enabled = true;
-              timeout = 30000;
-            }
-            // lib.optionalAttrs (srv ? bearerEnv || srv ? headersEnv) {
-              oauth = false;
-              headers =
-                lib.optionalAttrs (srv ? bearerEnv) { Authorization = "Bearer {env:${srv.bearerEnv}}"; }
-                // lib.mapAttrs (_: v: "{env:${v}}") (srv.headersEnv or { });
-            }
-        ) (mcpServersFor "opencode");
       in
       {
         home.activation.agentMcpClaudeCode =
@@ -641,36 +578,10 @@
           fi
         '';
 
-        xdg.configFile."opencode/opencode.json".text = builtins.toJSON {
-          "$schema" = "https://opencode.ai/config.json";
-          mcp = opencodeMcpConfig;
-        };
-        xdg.configFile."opencode/package.json" = {
-          force = true;
-          text = builtins.toJSON {
-            dependencies = {
-              "@eleboucher/opencode-memini" = "latest";
-            };
-          };
-        };
-        xdg.configFile."opencode/plugins/memini.js" = {
-          force = true;
-          text = ''
-            import { createRequire } from "node:module";
-
-            const require = createRequire(`''${process.env.HOME}/.config/opencode/package.json`);
-            const { default: MeminiPlugin } = await import(require.resolve("@eleboucher/opencode-memini"));
-
-            export const Memini = MeminiPlugin;
-          '';
-        };
-
         home.packages = with pkgs; [
           claudeCodeWrapper
           codexWrapper
           codexPluginsUpdate
-          opencodeWrapper
-          opencodeMeminiUpdate
           mcp-nixos
         ];
       };
